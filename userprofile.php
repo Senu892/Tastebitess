@@ -48,7 +48,7 @@ $orders = [
             <div class="flex justify-between items-center">
                 <img src="logo.png" alt="TasteBites" class="h-8">
                 <div class="hidden md:flex items-center space-x-8">
-                    <a href="#" class="text-black hover:text-gray-600">Home</a>
+                    <a href="#" class="text-black hover:text-gray-600">Homies</a>
                     <a href="#" class="text-black hover:text-gray-600">Snacks</a>
                     <a href="#" class="text-black hover:text-gray-600">Subscription</a>
                     <a href="#" class="text-black hover:text-gray-600">About Us</a>
