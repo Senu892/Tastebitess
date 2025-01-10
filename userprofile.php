@@ -1,37 +1,63 @@
 <?php
-// Sample user data - in a real app, this would come from a database
-$user = [
-    'name' => 'Seerat Siddharth',
-    'email' => 'seerat.sidharth@gmail.com',
-    'phone' => '+91 77 777 7777',
-    'address' => 'No. 64 Richmond Pl, Columbus 07, 600070'
-];
+session_start();
 
-// Sample orders data
-$orders = [
-    [
-        'order_id' => '0001',
-        'placed_on' => '01.12.2024',
-        'items' => 'Japanese Snacks',
-        'track' => 'Monthly Subscription',
-        'status' => 'View'
-    ],
-    [
-        'order_id' => '0002',
-        'placed_on' => '01.12.2024',
-        'items' => 'Japanese Snacks',
-        'track' => 'Monthly Subscription',
-        'status' => 'View'
-    ],
-    [
-        'order_id' => '0003',
-        'placed_on' => '01.12.2024',
-        'items' => 'Japanese Snacks',
-        'track' => 'Monthly Subscription',
-        'status' => 'View'
-    ]
-];
+// Check if user is logged in
+if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
+    header('Location: login.php');
+    exit();
+}
+
+// Database connection
+require_once 'dbconnection.php'; // Make sure this points to your database config file
+
+// Get user details from database using session user_id
+try {
+    $stmt = $conn->prepare("SELECT full_name, phone, address FROM user WHERE user_id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $user = $result->fetch_assoc();
+
+    // If user not found, redirect to login
+    if (!$user) {
+        session_destroy();
+        header('Location: login.php');
+        exit();
+    }
+} catch (Exception $e) {
+    // Handle any database errors
+    error_log("Database error: " . $e->getMessage());
+    $user = [
+        'full_name' => $_SESSION['username'],
+        'phone' => 'Error loading data',
+        'address' => 'Error loading data'
+    ];
+}
+
+// Get orders for the user
+// try {
+//     $stmt = $conn->prepare("SELECT order_id, created_at as placed_on, items, subscription_type as track, 'View' as status 
+//                            FROM orders 
+//                            WHERE user_id = ? 
+//                            ORDER BY created_at DESC 
+//                            LIMIT 5");
+//     $stmt->bind_param("i", $_SESSION['user_id']);
+//     $stmt->execute();
+//     $result = $stmt->get_result();
+//     $orders = [];
+//     while ($row = $result->fetch_assoc()) {
+//         $row['placed_on'] = date('d.m.Y', strtotime($row['placed_on']));
+//         $orders[] = $row;
+//     }
+// } catch (Exception $e) {
+//     error_log("Database error: " . $e->getMessage());
+//     $orders = []; // Empty array if there's an error
+// }
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+<!-- Rest of your HTML remains the same -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -42,26 +68,31 @@ $orders = [
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen flex flex-col bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white py-4 shadow-sm sticky top-0 z-50">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center">
-                <img src="logo.png" alt="TasteBites" class="h-8">
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="#" class="text-black hover:text-gray-600">Home</a>
-                    <a href="#" class="text-black hover:text-gray-600">Snacks</a>
-                    <a href="#" class="text-black hover:text-gray-600">Subscription</a>
-                    <a href="#" class="text-black hover:text-gray-600">About Us</a>
-                    <button class="bg-[#FFDAC1] px-6 py-1.5 rounded-full hover:bg-[#FFE4CF] transition">Senudi</button>
-                    <button class="text-gray-600 hover:text-gray-800">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
+    <!-- Navigation Bar -->
+<nav class="bg-white py-4">
+    <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+        <img src="logo.png" alt="TasteBites" class="h-8">
+        <div class="flex space-x-8 items-center">
+            <a href="index.php" class="text-black">Home</a>
+            <a href="customize.php" class="text-black">Customize</a>
+            <a href="subscription.php" class="text-black">Subscription</a>
+            <a href="aboutuspage.php" class="text-black">About Us</a>
+            <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                    <?php echo htmlspecialchars($_SESSION['username']); ?>
+                </a>
+                <a href="logout.php" class="text-black">Logout</a>
+            <?php else: ?>
+                <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+            <?php endif; ?>
+            <button class="text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+            </button>
         </div>
-    </nav>
+    </div>
+</nav>
 
     <!-- Main Content -->
     <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -69,40 +100,40 @@ $orders = [
         <h1 class="text-pink-600 text-2xl font-semibold mb-8">My Account</h1>
 
         <!-- User Info Cards -->
-        <div class="grid md:grid-cols-2 gap-6 mb-12">
-            <!-- Personal Info Card -->
-            <div class="bg-orange-50 rounded-lg p-6 shadow-sm hover:shadow-md transition">
-                <div class="flex items-center space-x-4">
-                    <div class="w-12 h-12 bg-gray-300 rounded-full"></div>
-                    <div class="flex-1">
-                        <div class="flex justify-between items-start">
-                            <h3 class="font-medium text-lg"><?php echo htmlspecialchars($user['name']); ?></h3>
-                            <button class="text-orange-500 hover:text-orange-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                            </button>
-                        </div>
-                        <p class="text-sm text-gray-600 mt-1"><?php echo htmlspecialchars($user['phone']); ?></p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Shipping Address Card -->
-            <div class="bg-orange-50 rounded-lg p-6 shadow-sm hover:shadow-md transition">
+<div class="grid md:grid-cols-2 gap-6 mb-12">
+    <!-- Personal Info Card -->
+    <div class="bg-orange-50 rounded-lg p-6 shadow-sm hover:shadow-md transition">
+        <div class="flex items-center space-x-4">
+            <div class="w-12 h-12 bg-gray-300 rounded-full"></div>
+            <div class="flex-1">
                 <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="font-medium text-lg mb-2">Shipping Address</h3>
-                        <p class="text-sm text-gray-600"><?php echo htmlspecialchars($user['address']); ?></p>
-                    </div>
+                    <h3 class="font-medium text-lg"><?php echo htmlspecialchars($user['full_name']); ?></h3>
                     <button class="text-orange-500 hover:text-orange-600">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                     </button>
                 </div>
+                <p class="text-sm text-gray-600 mt-1"><?php echo htmlspecialchars($user['phone']); ?></p>
             </div>
         </div>
+    </div>
+
+    <!-- Shipping Address Card -->
+    <div class="bg-orange-50 rounded-lg p-6 shadow-sm hover:shadow-md transition">
+        <div class="flex justify-between items-start">
+            <div>
+                <h3 class="font-medium text-lg mb-2">Shipping Address</h3>
+                <p class="text-sm text-gray-600"><?php echo htmlspecialchars($user['address']); ?></p>
+            </div>
+            <button class="text-orange-500 hover:text-orange-600">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
 
         <!-- Recent Orders -->
         <div class="mb-12">

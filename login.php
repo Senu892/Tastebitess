@@ -124,23 +124,22 @@
                 const data = await response.json();
                 messageDiv.classList.remove('hidden');
                 
-                if (data.status === 'success') {
-                    // Show success message
-                    messageDiv.innerHTML = `<p class="text-green-600">${data.message}</p>`;
-                    
-                    // Store user data
-                    localStorage.setItem('user', JSON.stringify(data.data));
-                    
-                    // Handle "Remember me" option
-                    if (document.getElementById('remember-me').checked) {
-                        localStorage.setItem('rememberMe', 'true');
-                    }
-                    
-                    // Redirect after successful login
-                    setTimeout(() => {
-                        window.location.href = 'index.php';
-                    }, 1500);
-                } else {
+                // Update the success handler in your login form submission
+                    if (data.status === 'success') {
+                        // Show success message
+                        messageDiv.innerHTML = `<p class="text-green-600">${data.message}</p>`;
+                        
+                        // Handle "Remember me" option
+                        if (document.getElementById('remember-me').checked) {
+                            localStorage.setItem('rememberMe', 'true');
+                            localStorage.setItem('user', JSON.stringify(data.data));
+                        }
+                        
+                        // Redirect after successful login
+                        setTimeout(() => {
+                            window.location.href = 'index.php';
+                        }, 1500);
+                    } else {
                     // Show error message
                     messageDiv.innerHTML = `<p class="text-red-600">${data.message}</p>`;
                 }

@@ -1,8 +1,8 @@
 <?php
 include_once './dbconnection.php';
 
-// Fetch all products from database
-$sql = "SELECT * FROM products ORDER BY product_name";
+// Fetch all products from database with prices
+$sql = "SELECT id, product_name, product_image, product_price FROM products ORDER BY product_name";
 $result = $conn->query($sql);
 $products = [];
 if ($result->num_rows > 0) {
@@ -14,6 +14,12 @@ if ($result->num_rows > 0) {
 session_start();
 if (!isset($_SESSION['selected_snacks'])) {
     $_SESSION['selected_snacks'] = [];
+}
+
+// Create a JSON object of product prices for JavaScript
+$productPrices = [];
+foreach ($products as $product) {
+    $productPrices[$product['id']] = $product['product_price'];
 }
 ?>
 
@@ -36,25 +42,34 @@ if (!isset($_SESSION['selected_snacks'])) {
     </style>
 </head>
 <body class="bg-white">
-    <!-- Navigation -->
-    <nav class="bg-white py-4">
-        <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
-            <img src="logo.png" alt="TasteBites" class="h-8">
-            <div class="flex space-x-8">
-                <a href="#" class="text-black">Home</a>
-                <a href="#" class="text-black">Snacks</a>
-                <a href="#" class="text-black">Subscription</a>
-                <a href="#" class="text-black">About Us</a>
-                <button class="bg-[#FFDAC1] px-6 py-1 rounded-full">Senudi</button>
-                <button class="text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                </button>
-            </div>
+    <!-- Navigation Bar -->
+<nav class="bg-white py-4">
+    <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+        <img src="logo.png" alt="TasteBites" class="h-8">
+        <div class="flex space-x-8 items-center">
+            <a href="index.php" class="text-black">Home</a>
+            <a href="customize.php" class="text-black">Customize</a>
+            <a href="subscription.php" class="text-black">Subscription</a>
+            <a href="aboutuspage.php" class="text-black">About Us</a>
+            <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                    <?php echo htmlspecialchars($_SESSION['username']); ?>
+                </a>
+                <a href="logout.php" class="text-black">Logout</a>
+            <?php else: ?>
+                <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+            <?php endif; ?>
+            <button class="text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+            </button>
         </div>
-    </nav>
+    </div>
+</nav>
 
+
+<body class="bg-white">
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-[#DC143C] mb-8">Let's Customize</h1>
@@ -68,51 +83,50 @@ if (!isset($_SESSION['selected_snacks'])) {
                         <img src="snack.jpg" alt="Snack Box" class="w-full">
                     </div>
                 </div>
+        <!-- Modified Order Details Section -->
+        <div class="col-span-4">
+            <div class="mb-6">
+                <span class="text-gray-600">Size :</span>
+                <select class="border rounded px-2 py-1 ml-2">
+                    <option>Large</option>
+                    <option>Medium</option>
+                    <option>Small</option>
+                </select>
+            </div>
+
+            <div class="bg-white">
+                <h2 class="text-[#DC143C] text-xl font-semibold mb-2">Total Amount</h2>
+                <p class="text-green-600 text-2xl font-bold mb-4">$<span id="total-price">0.00</span></p>
                 
-                <!-- Middle Section: Order Details -->
-                <div class="col-span-4">
-                    <div class="mb-6">
-                        <span class="text-gray-600">Size :</span>
-                        <select class="border rounded px-2 py-1 ml-2">
-                            <option>Large</option>
-                            <option>Medium</option>
-                            <option>Small</option>
-                        </select>
-                    </div>
-
-                    <div class="bg-white">
-                        <h2 class="text-[#DC143C] text-xl font-semibold mb-2">Total Amount</h2>
-                        <p class="text-green-600 text-2xl font-bold mb-4">$50.52</p>
-                        
-                        <div class="mb-4">
-                            <label class="block text-gray-700 mb-2">Quantity</label>
-                            <input class="w-full border rounded px-3 py-2" type="number" name="quantity">
-                        </div>
-
-                        <div class="space-y-2 mb-6">
-                            <label class="flex items-center justify-between">
-                                <div class="flex items-center">
-                                    <input type="radio" name="order_type" checked>
-                                    <span class="ml-2">One-time order</span>
-                                </div>
-                                <span>$50.52</span>
-                            </label>
-                            <label class="flex items-center justify-between">
-                                <div class="flex items-center">
-                                    <input type="radio" name="order_type">
-                                    <span class="ml-2">Subscribe & Save</span>
-                                </div>
-                                <span>(Monthly) $50.52</span>
-                            </label>
-                        </div>
-
-                        <button class="w-full bg-green-600 text-white py-2 rounded-md mb-3">Buy Now</button>
-                        <button class="w-full border border-orange-400 text-orange-400 py-2 rounded-md">+ Add to Cart</button>
-                    </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2">Quantity</label>
+                    <input class="w-full border rounded px-3 py-2" type="number" name="quantity" min="1" value="1" id="quantity-input">
                 </div>
 
-                <!-- Right Section: Selected Snacks -->
-                <div class="col-span-3">
+                <div class="space-y-2 mb-6">
+                    <label class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="radio" name="order_type" checked>
+                            <span class="ml-2">One-time order</span>
+                        </div>
+                        <span>$<span id="one-time-price">0.00</span></span>
+                    </label>
+                    <label class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="radio" name="order_type">
+                            <span class="ml-2">Subscribe & Save</span>
+                        </div>
+                        <span>(Monthly) $<span id="subscription-price">0.00</span></span>
+                    </label>
+                </div>
+
+                <button class="w-full bg-green-600 text-white py-2 rounded-md mb-3">Buy Now</button>
+                <button class="w-full border border-orange-400 text-orange-400 py-2 rounded-md">+ Add to Cart</button>
+            </div>
+        </div>
+
+        <!-- Right Section: Selected Snacks -->
+        <div class="col-span-3">
                     <h3 class="text-orange-500 font-semibold mb-4">Selected Snacks</h3>
                     <div id="selected-snacks" class="space-y-2">
                         <!-- Selected snacks will be added here dynamically -->
@@ -176,32 +190,45 @@ if (!isset($_SESSION['selected_snacks'])) {
     </footer>
 
     <script>
+        // Add product prices to JavaScript
+        const productPrices = <?php echo json_encode($productPrices); ?>;
+        
         document.addEventListener('DOMContentLoaded', function() {
             const selectedSnacks = new Set();
             const maxSnacks = 8;
+            let totalPrice = 0;
 
-            // Add click handlers to snack cards
-            document.querySelectorAll('.snack-card').forEach(card => {
-                card.addEventListener('click', function() {
-                    const snackData = {
-                        id: this.dataset.id,
-                        name: this.dataset.name,
-                        image: this.dataset.image
-                    };
+            const quantityInput = document.getElementById('quantity-input');
+            const totalPriceElement = document.getElementById('total-price');
+            const oneTimePriceElement = document.getElementById('one-time-price');
+            const subscriptionPriceElement = document.getElementById('subscription-price');
 
-                    if (selectedSnacks.size >= maxSnacks) {
-                        alert('You can only select up to 8 snacks!');
-                        return;
-                    }
+            function updatePriceDisplay() {
+                const quantity = parseInt(quantityInput.value) || 1;
+                const basePrice = totalPrice;
+                const total = (basePrice * quantity).toFixed(2);
+                const subscriptionDiscount = 0.9; // 10% discount for subscription
 
-                    addSnackToSelection(snackData);
-                });
-            });
+                totalPriceElement.textContent = total;
+                oneTimePriceElement.textContent = total;
+                subscriptionPriceElement.textContent = (total * subscriptionDiscount).toFixed(2);
+            }
 
+            // Add quantity input handler
+            quantityInput.addEventListener('input', updatePriceDisplay);
+
+            // Modified addSnackToSelection function
             function addSnackToSelection(snackData) {
                 if (selectedSnacks.has(snackData.id)) return;
+                if (selectedSnacks.size >= maxSnacks) {
+                    alert('You can only select up to 8 snacks!');
+                    return;
+                }
                 
                 selectedSnacks.add(snackData.id);
+                totalPrice += parseFloat(productPrices[snackData.id]) || 0;
+                updatePriceDisplay();
+
                 const selectedSnacksContainer = document.getElementById('selected-snacks');
                 
                 const snackElement = document.createElement('div');
@@ -211,7 +238,10 @@ if (!isset($_SESSION['selected_snacks'])) {
                         <img src="${snackData.image}" alt="${snackData.name}" class="h-8 w-8 rounded">
                         <span class="ml-2">${snackData.name}</span>
                     </div>
-                    <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
+                    <div class="flex items-center">
+                        <span class="mr-2">$${productPrices[snackData.id]}</span>
+                        <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
+                    </div>
                 `;
 
                 selectedSnacksContainer.appendChild(snackElement);
@@ -220,12 +250,26 @@ if (!isset($_SESSION['selected_snacks'])) {
                 snackElement.querySelector('.remove-snack').addEventListener('click', function(e) {
                     e.stopPropagation();
                     selectedSnacks.delete(this.dataset.id);
+                    totalPrice -= parseFloat(productPrices[this.dataset.id]) || 0;
+                    updatePriceDisplay();
                     snackElement.remove();
                     updateServer(Array.from(selectedSnacks));
                 });
 
                 updateServer(Array.from(selectedSnacks));
             }
+
+            // Add click handlers to snack cards
+            document.querySelectorAll('.snack-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const snackData = {
+                        id: this.dataset.id,
+                        name: this.dataset.name,
+                        image: this.dataset.image
+                    };
+                    addSnackToSelection(snackData);
+                });
+            });
 
             function updateServer(selectedSnacksArray) {
                 fetch('update_selection.php', {

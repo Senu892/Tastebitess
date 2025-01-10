@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($data['email']) || empty($data['password'])) {
                 sendResponse('error', 'Email and password are required');
             }
-
+        
             try {
                 // Get user by email
                 $stmt = $conn->prepare("SELECT user_id, user_type, full_name, username, email, password FROM user WHERE email = ?");
@@ -146,18 +146,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param("s", $data['email']);
                 $stmt->execute();
                 $result = $stmt->get_result();
-
+        
                 if ($result->num_rows === 0) {
                     sendResponse('error', 'Invalid email or password');
                 }
-
+        
                 $user = $result->fetch_assoc();
-
+        
                 // Verify password
                 if (!password_verify($data['password'], $user['password'])) {
                     sendResponse('error', 'Invalid email or password');
                 }
-
+        
+                // Start session and store user data
+                session_start();
+                $_SESSION['user_id'] = $user['user_id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['user_type'] = $user['user_type'];
+                $_SESSION['logged_in'] = true;
+        
                 // Return user data (excluding password)
                 unset($user['password']);
                 $user['login_time'] = date('Y-m-d H:i:s');

@@ -24,26 +24,32 @@ $product = [
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50">
-    <!-- Navigation -->
-    <nav class="bg-white py-4 shadow-sm sticky top-0 z-50">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center">
-                <img src="logo.png" alt="TasteBites" class="h-8">
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="#" class="text-black hover:text-gray-600">Home</a>
-                    <a href="#" class="text-black hover:text-gray-600">Snacks</a>
-                    <a href="#" class="text-black hover:text-gray-600">Subscription</a>
-                    <a href="#" class="text-black hover:text-gray-600">About Us</a>
-                    <button class="bg-[#FFDAC1] px-6 py-1.5 rounded-full hover:bg-[#FFE4CF] transition">Senudi</button>
-                    <button class="text-gray-600 hover:text-gray-800">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                        </svg>
-                    </button>
-                </div>
-            </div>
+    <!-- Navigation Bar -->
+<nav class="bg-white py-4">
+    <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+        <img src="logo.png" alt="TasteBites" class="h-8">
+        <div class="flex space-x-8 items-center">
+            <a href="index.php" class="text-black">Home</a>
+            <a href="customize.php" class="text-black">Customize</a>
+            <a href="subscription.php" class="text-black">Subscription</a>
+            <a href="aboutuspage.php" class="text-black">About Us</a>
+            <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                    <?php echo htmlspecialchars($_SESSION['username']); ?>
+                </a>
+                <a href="logout.php" class="text-black">Logout</a>
+            <?php else: ?>
+                <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+            <?php endif; ?>
+            <button class="text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+            </button>
         </div>
-    </nav>
+    </div>
+</nav>
+
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="bg-white rounded-lg shadow-sm">
             <div class="md:flex">
