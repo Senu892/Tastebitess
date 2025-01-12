@@ -1,3 +1,9 @@
+<?php
+session_start();
+$username = isset($_SESSION['username']) ? $_SESSION['username'] : '';
+$isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,15 +12,9 @@
     <title>Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100">
-<?php
-session_start();
-$username = isset($_SESSION['username']) ? $_SESSION['username'] : '';
-$isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
-?>
-
-<!-- Navigation Bar -->
-<nav class="bg-white py-4">
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <!-- Navigation Bar -->
+    <nav class="bg-white py-4 z-10">
     <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
         <img src="logo.png" alt="TasteBites" class="h-8">
         <div class="flex space-x-8 items-center">
@@ -38,39 +38,76 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
         </div>
     </div>
 </nav>
-    <!-- Hero Section -->
-    <section class="max-w-7xl mx-auto px-4 py-16 grid grid-cols-2 gap-8 items-center">
-        <div>
-            <h1 class="text-4xl font-bold mb-4">
-                A World of<br>
-                Flavors at <span class="text-[#DC143C]">Your Doorstep!</span>
-            </h1>
-            <p class="hero-text-color mb-8">
-                Discover global flavors with our curated snack boxes. From familiar treats to rare rarities, TasteBites has it all. Explore tastes from across the globe – all perfectly packaged and delivered to your door!
-            </p>
-            <button class="bg-[#DC143C] text-white px-8 py-3 rounded-full">
-                Order Now
-            </button>
-        </div>
-        <div>
-            <img src="hero-snackbox.png" alt="Snack Box Collection" class="w-full">
-        </div>
-    </section>
 
-    <!-- Customized Snack Boxes -->
-    <section class="max-w-7xl mx-auto px-4 py-16">
-        <div class="text-center mb-12">
-            <h2 class="text-[#DC143C] text-2xl font-bold">Customized Snack Boxes</h2>
-            <h3 class="text-3xl font-bold mt-2">Find Your Perfect Box</h3>
-        </div>
-        
-        <div id="product-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Product cards will be inserted dynamically here -->
-        </div>
+    <main class="flex-grow">
+        <!-- Hero Section -->
+        <section class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-2 gap-8 items-center">
+    <div>
+        <h1 class="text-4xl font-bold mb-4">
+            A World of<br>
+            Flavors at <span class="text-[#DC143C]">Your Doorstep!</span>
+        </h1>
+        <p class="hero-text-color mb-8">
+            Discover global flavors with our curated snack boxes. From familiar treats to rare rarities, TasteBites has it all. Explore tastes from across the globe – all perfectly packaged and delivered to your door!
+        </p>
+        <button class="bg-[#DC143C] text-white px-8 py-3 rounded-full">
+            Order Now
+        </button>
+    </div>
+    <div class="scale-150 transform origin-center"> <!-- Added scaling -->
+        <img src="index-hero.png" alt="Snack Box Collection" class="w-full">
+    </div>
+</section>
+
+        <!-- Customized Snack Boxes -->
+        <section class="max-w-7xl mx-auto px-4 py-16">
+            <div class="text-center mb-12">
+                <h2 class="text-[#DC143C] text-2xl font-bold">Customized Snack Boxes</h2>
+                <h3 class="text-3xl font-bold mt-2">Find Your Perfect Box</h3>
+            </div>
+            
+            <div id="product-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Product cards will be inserted dynamically here -->
+            </div>
+        </section>
     </main>
 
+    <!-- Footer -->
+    <footer class="bg-[#FFDAC1] py-12 w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <img src="logo.png" alt="TasteBites" class="h-11 mb-4">
+                    <p class="text-gray-800">Sweet Every Bite</p>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Navigate</h3>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="hover:text-gray-600">Home</a></li>
+                            <li><a href="#" class="hover:text-gray-600">Snacks</a></li>
+                            <li><a href="#" class="hover:text-gray-600">Subscription</a></li>
+                            <li><a href="#" class="hover:text-gray-600">About Us</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Contact US</h3>
+                        <ul class="space-y-2 text-gray-800">
+                            <li>Location: 123 Flavor Street,</li>
+                            <li>Colombo, Sri Lanka</li>
+                            <li>Call Us: +94777890</li>
+                            <li>Email: hello@tastebites.com</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
+                © 2024 Taste Bites. All Rights Reserved.
+            </div>
+        </div>
+    </footer>
+
     <script>
-        // Fetch products from the backend
         async function fetchProducts() {
         try {
             const response = await fetch('http://localhost/tut3/Routes.php/get-all-products');
