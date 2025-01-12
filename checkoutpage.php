@@ -16,7 +16,7 @@ if (!isset($_POST['selected_products']) || !isset($_POST['total_price'])) {
 
 // Get user details
 $userId = $_SESSION['user_id'];
-$userQuery = "SELECT full_name, phone, address FROM user WHERE user_id = ?"; // Adjust column names as needed
+$userQuery = "SELECT full_name, phone, address FROM user WHERE user_id = ?";
 $stmt = $conn->prepare($userQuery);
 $stmt->bind_param("i", $userId);
 $stmt->execute();
@@ -25,13 +25,13 @@ $userResult = $stmt->get_result();
 if ($userResult->num_rows > 0) {
     $userData = $userResult->fetch_assoc();
 } else {
-    // Handle case where user data is not found
     $userData = [
         'full_name' => 'N/A',
         'phone' => 'N/A',
         'address' => 'N/A'
     ];
 }
+
 // Get selected products details
 $selectedProducts = json_decode($_POST['selected_products'], true);
 $boxSize = $_POST['box_size'];
@@ -39,12 +39,52 @@ $quantity = $_POST['quantity'];
 $orderType = $_POST['order_type'];
 $totalPrice = $_POST['total_price'];
 
+// Convert the products array to a comma-separated string
+$productIdsString = implode(',', $selectedProducts);
+
 // Calculate final prices
 $subtotal = floatval($totalPrice);
 $shipping = 3.00;
 $finalTotal = $subtotal + $shipping;
 
-// Fetch selected products details from database
+// Process the order when form is submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
+    // Prepare the order insertion query
+    $orderQuery = "INSERT INTO Orders (
+        user_id, 
+        order_type, 
+        product_id,
+        snackbox_size, 
+        product_price, 
+        product_quantity, 
+        payment_type
+    ) VALUES (?, 'Customized', ?, ?, ?, ?, ?)";
+    
+    $paymentType = ($orderType === 'subscription') ? 'Subscription' : 'One-Time';
+    
+    $stmt = $conn->prepare($orderQuery);
+    $stmt->bind_param(
+        "issdis",  // Changed parameter type for product_price to 'd' for double
+        $userId,
+        $productIdsString,  // Using the comma-separated string instead of array
+        $boxSize,
+        $finalTotal,
+        $quantity,
+        $paymentType
+    );
+
+    if ($stmt->execute()) {
+        // Order saved successfully
+        $orderId = $conn->insert_id;
+        
+        exit();
+    } else {
+        // Handle error
+        $error = "Error processing your order. Please try again.";
+    }
+}
+
+// Rest of your existing code for fetching product details
 $productDetails = [];
 if (!empty($selectedProducts)) {
     $placeholders = str_repeat('?,', count($selectedProducts) - 1) . '?';
@@ -91,38 +131,37 @@ if (!empty($selectedProducts)) {
 </head>
 <body class="flex flex-col min-h-screen">
     <!-- Navigation Bar -->
-<nav class="bg-white py-4">
-    <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
-        <img src="logo.png" alt="TasteBites" class="h-8">
-        <div class="flex space-x-8 items-center">
-            <a href="index.php" class="text-black">Home</a>
-            <a href="customize.php" class="text-black">Customize</a>
-            <a href="subscription.php" class="text-black">Subscription</a>
-            <a href="aboutuspage.php" class="text-black">About Us</a>
-            <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
-                <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
-                    <?php echo htmlspecialchars($_SESSION['username']); ?>
-                </a>
-                <a href="logout.php" class="text-black">Logout</a>
-            <?php else: ?>
-                <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
-            <?php endif; ?>
-            <button class="text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-            </button>
+    <nav class="bg-white py-4">
+        <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+            <img src="logo.png" alt="TasteBites" class="h-8">
+            <div class="flex space-x-8 items-center">
+                <a href="index.php" class="text-black">Home</a>
+                <a href="customize.php" class="text-black">Customize</a>
+                <a href="subscription.php" class="text-black">Subscription</a>
+                <a href="aboutuspage.php" class="text-black">About Us</a>
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                    <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                        <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    </a>
+                    <a href="logout.php" class="text-black">Logout</a>
+                <?php else: ?>
+                    <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+                <?php endif; ?>
+                <button class="text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                </button>
+            </div>
         </div>
-    </div>
-</nav>
-
+    </nav>
 
     <main class="flex-grow py-8">
         <!-- Main Container -->
         <div class="max-w-[1200px] mx-auto px-6">
             <!-- Header -->
             <div class="flex justify-between items-center mb-6">
-            <h2 class="text-rose-500 font-medium text-xl">Checkout</h2>
+                <h2 class="text-rose-500 font-medium text-xl">Checkout</h2>
                 <span class="bg-orange-50 text-xs px-3 py-1 rounded-full text-orange-800">
                     <?php echo ucfirst($orderType); ?> Order
                 </span>
@@ -146,7 +185,8 @@ if (!empty($selectedProducts)) {
                     </div>
 
                     <!-- Payment Form -->
-                    <form action="process_payment.php" method="POST" class="max-w-md" id="payment-form">
+                    <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST" id="payment-form">
+                        <input type="hidden" name="process_payment" value="1">
                         <input type="hidden" name="order_type" value="<?php echo htmlspecialchars($orderType); ?>">
                         <input type="hidden" name="box_size" value="<?php echo htmlspecialchars($boxSize); ?>">
                         <input type="hidden" name="quantity" value="<?php echo htmlspecialchars($quantity); ?>">
@@ -155,20 +195,20 @@ if (!empty($selectedProducts)) {
 
                         <div class="mb-8">
                             <label class="block text-gray-500 text-sm mb-2">Cardholder Name</label>
-                            <input type="text" class="input-field w-full bg-transparent">
+                            <input type="text" name="cardholder_name" class="input-field w-full bg-transparent">
                         </div>
                         <div class="mb-8">
                             <label class="block text-gray-500 text-sm mb-2">Card Number</label>
-                            <input type="text" class="input-field w-full bg-transparent">
+                            <input type="text" name="card_number" class="input-field w-full bg-transparent">
                         </div>
                         <div class="grid grid-cols-2 gap-8">
                             <div>
                                 <label class="block text-gray-500 text-sm mb-2">Exp Date</label>
-                                <input type="text" class="input-field w-full bg-transparent">
+                                <input type="text" name="exp_date" class="input-field w-full bg-transparent">
                             </div>
                             <div>
                                 <label class="block text-gray-500 text-sm mb-2">CVC</label>
-                                <input type="text" class="input-field w-full bg-transparent">
+                                <input type="text" name="cvc" class="input-field w-full bg-transparent">
                             </div>
                         </div>
                     </form>
@@ -182,9 +222,9 @@ if (!empty($selectedProducts)) {
                             <div class="flex items-start gap-3">
                                 <div class="w-8 h-8 bg-white rounded-full"></div>
                                 <div>
-                                    <p> <?php echo htmlspecialchars($userData['full_name']); ?></p>
-                                    <p> <?php echo htmlspecialchars($userData['address']); ?></p>
-                                    <p> <?php echo htmlspecialchars($userData['phone']); ?></p>
+                                    <p><?php echo htmlspecialchars($userData['full_name']); ?></p>
+                                    <p><?php echo htmlspecialchars($userData['address']); ?></p>
+                                    <p><?php echo htmlspecialchars($userData['phone']); ?></p>
                                 </div>
                             </div>
                             <button class="text-rose-500">
@@ -274,40 +314,108 @@ if (!empty($selectedProducts)) {
     </footer>
 
     <script>
-        // Add basic form validation
-        document.getElementById('payment-form').addEventListener('submit', function(e) {
-            const cardNumber = document.querySelector('input[name="card_number"]').value;
-            const expDate = document.querySelector('input[name="exp_date"]').value;
-            const cvc = document.querySelector('input[name="cvc"]').value;
+    // Format card number input
+    document.querySelector('input[name="card_number"]').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+        if (value.length > 16) {
+            value = value.slice(0, 16);
+        }
+        // Add spaces after every 4 digits for visual formatting
+        value = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+        e.target.value = value;
+    });
 
-            if (!/^\d{16}$/.test(cardNumber)) {
-                e.preventDefault();
-                alert('Please enter a valid 16-digit card number');
-                return;
-            }
+    // Format expiration date input
+    document.querySelector('input[name="exp_date"]').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+        if (value.length > 4) {
+            value = value.slice(0, 4);
+        }
+        if (value.length >= 2) {
+            value = value.slice(0, 2) + '/' + value.slice(2);
+        }
+        e.target.value = value;
+    });
 
-            if (!/^\d{2}\/\d{2}$/.test(expDate)) {
-                e.preventDefault();
-                alert('Please enter expiration date in MM/YY format');
-                return;
-            }
+    // Format CVC input
+    document.querySelector('input[name="cvc"]').addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+        if (value.length > 3) {
+            value = value.slice(0, 3);
+        }
+        e.target.value = value;
+    });
 
-            if (!/^\d{3}$/.test(cvc)) {
-                e.preventDefault();
-                alert('Please enter a valid 3-digit CVC');
-                return;
+    // Add basic form validation
+    document.getElementById('payment-form').addEventListener('submit', function(e) {
+        const cardholderName = document.querySelector('input[name="cardholder_name"]').value;
+        const cardNumber = document.querySelector('input[name="card_number"]').value.replace(/\s/g, '');
+        const expDate = document.querySelector('input[name="exp_date"]').value;
+        const cvc = document.querySelector('input[name="cvc"]').value;
+
+        // For this example, we'll just do basic validation
+        // In a real application, you'd want more robust validation
+
+        if (cardholderName.trim() === '') {
+            e.preventDefault();
+            alert('Please enter cardholder name');
+            return;
+        }
+
+        if (!/^\d{16}$/.test(cardNumber)) {
+            e.preventDefault();
+            alert('Please enter a valid 16-digit card number');
+            return;
+        }
+
+        if (!/^\d{2}\/\d{2}$/.test(expDate)) {
+            e.preventDefault();
+            alert('Please enter expiration date in MM/YY format');
+            return;
+        }
+
+        // Basic expiration date validation
+        const [month, year] = expDate.split('/');
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear() % 100;
+        const currentMonth = currentDate.getMonth() + 1;
+
+        if (parseInt(month) < 1 || parseInt(month) > 12) {
+            e.preventDefault();
+            alert('Invalid month in expiration date');
+            return;
+        }
+
+        if (parseInt(year) < currentYear || 
+            (parseInt(year) === currentYear && parseInt(month) < currentMonth)) {
+            e.preventDefault();
+            alert('Card has expired');
+            return;
+        }
+
+        if (!/^\d{3}$/.test(cvc)) {
+            e.preventDefault();
+            alert('Please enter a valid 3-digit CVC');
+            return;
+        }
+    });
+
+    // Optional: Real-time validation feedback
+    const inputs = document.querySelectorAll('.input-field');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value.trim() === '') {
+                this.style.borderColor = '#ff0000';
+            } else {
+                this.style.borderColor = '#E5E5E5';
             }
         });
 
-        // Format expiration date input
-        document.querySelector('input[name="exp_date"]').addEventListener('input', function(e) {
-            let value = e.target.value.replace(/\D/g, '');
-            if (value.length >= 2) {
-                value = value.slice(0,2) + '/' + value.slice(2,4);
-            }
-            e.target.value = value;
+        input.addEventListener('focus', function() {
+            this.style.borderColor = '#666';
         });
-    </script>
+    });
+</script>
     
 </body>
 </html>
