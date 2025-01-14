@@ -49,7 +49,31 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
     </style>
 </head>
 <body class="bg-white">
-    <!-- Navigation Bar remains the same -->
+    <!-- Navigation Bar -->
+    <nav class="bg-white py-4">
+        <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+            <img src="logo.png" alt="TasteBites" class="h-8">
+            <div class="flex space-x-8 items-center">
+                <a href="index.php" class="text-black">Home</a>
+                <a href="customize.php" class="text-black">Customize</a>
+                <a href="subscription.php" class="text-black">Subscription</a>
+                <a href="aboutuspage.php" class="text-black">About Us</a>
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                    <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                        <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    </a>
+                    <a href="logout.php" class="text-black">Logout</a>
+                <?php else: ?>
+                    <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+                <?php endif; ?>
+                <button class="text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
     
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 py-8">
@@ -145,7 +169,42 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
         </div>
     </main>
 
-    <!-- Footer remains the same -->
+    
+    <!-- Footer -->
+    <footer class="bg-[#FFDAC1] py-12 w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <img src="logo.png" alt="TasteBites" class="h-11 mb-4">
+                    <p class="text-gray-800">Sweet Every Bite</p>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Navigate</h3>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="hover:text-gray-600">Home</a></li>
+                            <li><a href="#" class="hover:text-gray-600">Snacks</a></li>
+                            <li><a href="#" class="hover:text-gray-600">Subscription</a></li>
+                            <li><a href="#" class="hover:text-gray-600">About Us</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Contact US</h3>
+                        <ul class="space-y-2 text-gray-800">
+                            <li>Location: 123 Flavor Street,</li>
+                            <li>Colombo, Sri Lanka</li>
+                            <li>Call Us: +94777890</li>
+                            <li>Email: hello@tastebites.com</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
+                © 2024 Taste Bites. All Rights Reserved.
+            </div>
+        </div>
+    </footer>
+
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {

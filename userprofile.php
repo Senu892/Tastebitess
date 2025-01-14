@@ -8,7 +8,7 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
 }
 
 // Database connection
-require_once 'dbconnection.php'; // Make sure this points to your database config file
+require_once 'dbconnection.php';
 
 // Get user details from database using session user_id
 try {
@@ -24,35 +24,40 @@ try {
         header('Location: login.php');
         exit();
     }
+
+    // Get user's orders
+    $orders_stmt = $conn->prepare("
+        SELECT 
+            order_id,
+            order_date,
+            product_id,
+            snackbox_size,
+            product_price,
+            product_quantity,
+            order_status,
+            payment_type
+        FROM orders 
+        WHERE user_id = ? 
+        ORDER BY order_date DESC
+    ");
+    $orders_stmt->bind_param("i", $_SESSION['user_id']);
+    $orders_stmt->execute();
+    $orders_result = $orders_stmt->get_result();
+    $orders = [];
+    while ($order = $orders_result->fetch_assoc()) {
+        $orders[] = $order;
+    }
+
 } catch (Exception $e) {
-    // Handle any database errors
     error_log("Database error: " . $e->getMessage());
     $user = [
         'full_name' => $_SESSION['username'],
         'phone' => 'Error loading data',
         'address' => 'Error loading data'
     ];
+    $orders = [];
 }
 
-// Get orders for the user
-// try {
-//     $stmt = $conn->prepare("SELECT order_id, created_at as placed_on, items, subscription_type as track, 'View' as status 
-//                            FROM orders 
-//                            WHERE user_id = ? 
-//                            ORDER BY created_at DESC 
-//                            LIMIT 5");
-//     $stmt->bind_param("i", $_SESSION['user_id']);
-//     $stmt->execute();
-//     $result = $stmt->get_result();
-//     $orders = [];
-//     while ($row = $result->fetch_assoc()) {
-//         $row['placed_on'] = date('d.m.Y', strtotime($row['placed_on']));
-//         $orders[] = $row;
-//     }
-// } catch (Exception $e) {
-//     error_log("Database error: " . $e->getMessage());
-//     $orders = []; // Empty array if there's an error
-// }
 ?>
 
 <!DOCTYPE html>
@@ -135,7 +140,7 @@ try {
     </div>
 </div>
 
-        <!-- Recent Orders -->
+        <!-- The orders table section should be updated to: -->
         <div class="mb-12">
             <h2 class="text-xl font-semibold mb-6">Recent Orders</h2>
             <div class="bg-white rounded-lg overflow-hidden shadow-sm">
@@ -144,31 +149,48 @@ try {
                         <thead class="bg-gray-50">
                             <tr class="text-left text-sm">
                                 <th class="px-6 py-4">Order ID</th>
-                                <th class="px-6 py-4">Placed On</th>
-                                <th class="px-6 py-4">Items</th>
-                                <th class="px-6 py-4">Track</th>
-                                <th class="px-6 py-4"></th>
+                                <th class="px-6 py-4">Date</th>
+                                <th class="px-6 py-4">Size</th>
+                                <th class="px-6 py-4">Item ID</th>
+                                <th class="px-6 py-4">Price</th>
+                                <th class="px-6 py-4">Quantity</th>
+                                <th class="px-6 py-4">Payment</th>
+                                <th class="px-6 py-4">Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($orders as $order): ?>
-                            <tr class="border-t hover:bg-gray-50">
-                                <td class="px-6 py-4"><?php echo htmlspecialchars($order['order_id']); ?></td>
-                                <td class="px-6 py-4"><?php echo htmlspecialchars($order['placed_on']); ?></td>
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center space-x-3">
-                                        <div class="w-10 h-10 bg-gray-200 rounded"></div>
-                                        <span class="font-medium"><?php echo htmlspecialchars($order['items']); ?></span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-gray-600"><?php echo htmlspecialchars($order['track']); ?></td>
-                                <td class="px-6 py-4">
-                                    <button class="px-4 py-1.5 text-orange-500 border border-orange-500 rounded-full text-sm hover:bg-orange-50 transition">
-                                        <?php echo htmlspecialchars($order['status']); ?>
-                                    </button>
-                                </td>
+                            <?php if (empty($orders)): ?>
+                            <tr class="border-t">
+                                <td colspan="8" class="px-6 py-4 text-center text-gray-500">No orders found</td>
                             </tr>
-                            <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php foreach ($orders as $order): ?>
+                                <tr class="border-t hover:bg-gray-50">
+                                    <td class="px-6 py-4"><?php echo htmlspecialchars($order['order_id']); ?></td>
+                                    <td class="px-6 py-4"><?php echo date('Y-m-d H:i', strtotime($order['order_date'])); ?></td>
+                                    <td class="px-6 py-4"><?php echo htmlspecialchars($order['snackbox_size']); ?></td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center space-x-3">
+                                            <div class="w-10 h-10 bg-gray-200 rounded"></div>
+                                            <span class="font-medium">
+                                                <?php 
+                                                    $products = $order['product_id'];
+                                                    echo !empty($products) ? htmlspecialchars($products) : 'Customized Box';
+                                                ?>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">$<?php echo number_format($order['product_price'], 2); ?></td>
+                                    <td class="px-6 py-4"><?php echo htmlspecialchars($order['product_quantity']); ?></td>
+                                    <td class="px-6 py-4"><?php echo htmlspecialchars($order['payment_type'] ?? 'Standard'); ?></td>
+                                    <td class="px-6 py-4">
+                                        <button class="px-4 py-1.5 text-orange-500 border border-orange-500 rounded-full text-sm hover:bg-orange-50 transition">
+                                            <?php echo htmlspecialchars($order['order_status']); ?>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>

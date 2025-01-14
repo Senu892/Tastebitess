@@ -7,7 +7,7 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
 include 'dbconnection.php';
 
 // Fetch snack boxes
-$sql = "SELECT id, snackbox_name, snackbox_size, snacks_selected, snackbox_price FROM snackboxes";
+$sql = "SELECT id, snackbox_name, snackbox_size, snacks_selected, snackbox_price, snackboximage_url FROM snackboxes";
 $result = $conn->query($sql);
 ?>
 
@@ -76,11 +76,20 @@ $result = $conn->query($sql);
             <div id="product-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <?php if ($result->num_rows > 0): ?>
                     <?php while($row = $result->fetch_assoc()): ?>
-                        <div class="bg-white shadow-md rounded-lg p-4">
-                            <h3 class="text-xl font-bold"><?php echo htmlspecialchars($row['snackbox_name']); ?></h3>
-                            <p>Size: <?php echo htmlspecialchars($row['snackbox_size']); ?></p>
-                            <p>Snacks: <?php echo htmlspecialchars($row['snacks_selected']); ?></p>
-                            <p class="text-lg font-bold text-[#DC143C]">$<?php echo htmlspecialchars(number_format($row['snackbox_price'], 2)); ?></p>
+                        <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                            <a href="snackdescription.php?id=<?php echo $row['id']; ?>">
+                                <img 
+                                    src="<?php echo htmlspecialchars($row['snackboximage_url']); ?>" 
+                                    alt="<?php echo htmlspecialchars($row['snackbox_name']); ?>"
+                                    class="w-full h-48 object-cover"
+                                >
+                                <div class="p-4">
+                                    <h3 class="text-xl font-bold"><?php echo htmlspecialchars($row['snackbox_name']); ?></h3>
+                                    <p>Size: <?php echo htmlspecialchars($row['snackbox_size']); ?></p>
+                                    <p>Snacks: <?php echo htmlspecialchars($row['snacks_selected']); ?></p>
+                                    <p class="text-lg font-bold text-[#DC143C]">$<?php echo htmlspecialchars(number_format($row['snackbox_price'], 2)); ?></p>
+                                </div>
+                            </a>
                         </div>
                     <?php endwhile; ?>
                 <?php else: ?>
