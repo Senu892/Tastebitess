@@ -1,30 +1,26 @@
 <?php
-include_once '../dbconnection.php'; // Include your database connection file
+include_once '../dbconnection.php';
 
-$message = ""; // Initialize message variable
-$products = []; // Array to hold available products (snacks)
+$message = "";
+$products = [];
 
-// Query to fetch all available products (snacks)
-$sql = "SELECT id, product_name, product_price FROM products"; // Updated column name
+$sql = "SELECT id, product_name, product_price FROM products";
 $result = $conn->query($sql);
 if ($result->num_rows > 0) {
     while ($row = $result->fetch_assoc()) {
-        $products[] = $row; // Add each product to the products array
+        $products[] = $row;
     }
 }
 
-// Handle form submission to add a snackbox
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Get form data
     $snackbox_name = isset($_POST['snackbox_name']) ? trim($_POST['snackbox_name']) : '';
     $snackbox_size = isset($_POST['snackbox_size']) ? $_POST['snackbox_size'] : '';
     $snacks_selected = isset($_POST['snacks_selected']) ? $_POST['snacks_selected'] : '';
+    $snackboximage_url = isset($_POST['snackboximage_url']) ? trim($_POST['snackboximage_url']) : ''; 
 
-    // Validate the input
-    if (empty($snackbox_name) || empty($snackbox_size) || empty($snacks_selected)) {
+    if (empty($snackbox_name) || empty($snackbox_size) || empty($snacks_selected) || empty($snackboximage_url)) {
         $message = "All fields are required, and you must select snacks.";
     } else {
-        // Calculate the total price of the selected snacks
         $snack_ids = explode(',', $snacks_selected);
         $total_price = 0;
 
@@ -43,23 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $price_stmt->close();
         }
 
-        // Prepare the SQL query to insert the new snackbox
-        $sql = "INSERT INTO snackboxes (snackbox_name, snackbox_size, snacks_selected, snackbox_price) 
-                VALUES (?, ?, ?, ?)";
+        $sql = "INSERT INTO snackboxes (snackbox_name, snackbox_size, snacks_selected, snackbox_price, snackboximage_url) 
+                VALUES (?, ?, ?, ?, ?)";
 
         $stmt = $conn->prepare($sql);
 
         if ($stmt) {
-            // Bind parameters for the statement
-            $stmt->bind_param("sssd", $snackbox_name, $snackbox_size, $snacks_selected, $total_price);
+            $stmt->bind_param("sssds", $snackbox_name, $snackbox_size, $snacks_selected, $total_price, $snackboximage_url);
 
             if ($stmt->execute()) {
-                // Success message
                 $message = "Snackbox added successfully!";
-                // Set a session variable to keep the message after redirect
                 session_start();
                 $_SESSION['message'] = $message;
-                // Redirect to prevent re-submission
                 header("Location: snackbox.php");
                 exit();
             } else {
@@ -72,11 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Retrieve the message from session if set
 session_start();
 if (isset($_SESSION['message'])) {
     $message = $_SESSION['message'];
-    unset($_SESSION['message']); // Clear the session message after showing it
+    unset($_SESSION['message']);
 }
 ?>
 <!DOCTYPE html>
@@ -116,6 +106,13 @@ if (isset($_SESSION['message'])) {
             margin-left: 8px;
             cursor: pointer;
         }
+        .image-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin-top: 8px;
+            display: none;
+            border-radius: 4px;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -123,19 +120,18 @@ if (isset($_SESSION['message'])) {
         <div class="bg-white rounded-lg shadow-lg p-8 max-w-lg w-full">
             <h1 class="text-2xl font-bold text-gray-800 text-center mb-6">Add New Snackbox</h1>
 
-            <!-- Display message if set -->
             <?php if (!empty($message)): ?>
                 <div id="message-box" class="mb-4 p-4 <?= strpos($message, 'success') !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' ?> rounded-lg border">
                     <?= htmlspecialchars($message); ?>
                 </div>
             <?php endif; ?>
 
-            <!-- Snackbox Form -->
             <form action="snackbox.php" method="POST" class="space-y-6">
                 <div>
                     <label for="snackbox_name" class="block text-sm font-medium text-gray-700">Snackbox Name</label>
                     <input type="text" id="snackbox_name" name="snackbox_name" class="mt-1 p-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" required>
                 </div>
+
                 <div>
                     <label for="snackbox_size" class="block text-sm font-medium text-gray-700">Snackbox Size</label>
                     <select id="snackbox_size" name="snackbox_size" class="mt-1 p-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" onchange="updateSnackFields()" required>
@@ -143,6 +139,13 @@ if (isset($_SESSION['message'])) {
                         <option value="medium">Medium</option>
                         <option value="large">Large</option>
                     </select>
+                </div>
+
+                <div>
+                    <label for="snackboximage_url" class="block text-sm font-medium text-gray-700">Snackbox Image URL</label>
+                    <input type="url" id="snackboximage_url" name="snackboximage_url" class="mt-1 p-2 w-full border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400" 
+                           placeholder="https://example.com/image.jpg" required onchange="previewImage(this)">
+                    
                 </div>
 
                 <div>
@@ -181,11 +184,32 @@ if (isset($_SESSION['message'])) {
         let maxSnacks = 0;
         let totalPrice = 0;
 
-        // Function to dynamically update snack selection fields based on selected size
+        function previewImage(input) {
+            const preview = document.getElementById('image_preview');
+            const imageUrl = input.value;
+            
+            if (imageUrl) {
+                preview.src = imageUrl;
+                preview.style.display = 'block';
+                
+                // Handle load error
+                preview.onerror = function() {
+                    preview.style.display = 'none';
+                    alert('Failed to load image. Please check the URL.');
+                };
+                
+                // Show preview if load successful
+                preview.onload = function() {
+                    preview.style.display = 'block';
+                };
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
         function updateSnackFields() {
             const size = document.getElementById('snackbox_size').value;
 
-            // Set the max snacks allowed based on size
             if (size === 'small') {
                 maxSnacks = 5;
             } else if (size === 'medium') {
@@ -194,19 +218,16 @@ if (isset($_SESSION['message'])) {
                 maxSnacks = 9;
             }
 
-            // Reset the selected snacks and input field
             document.getElementById('selected_snacks').innerHTML = '';
             document.getElementById('snacks_selected').value = '';
             document.querySelectorAll('.add-snack-btn').forEach(button => {
                 button.disabled = false;
             });
 
-            // Reset the total price
             totalPrice = 0;
             updateTotalPrice();
         }
 
-        // Add snack to the selected snacks list
         document.querySelectorAll('.add-snack-btn').forEach(button => {
             button.addEventListener('click', function() {
                 const selectedSnacksContainer = document.getElementById('selected_snacks');
@@ -215,7 +236,6 @@ if (isset($_SESSION['message'])) {
                     const snackName = this.closest('.snack-list-item').getAttribute('data-snack-name');
                     const snackPrice = parseFloat(this.closest('.snack-list-item').getAttribute('data-snack-price'));
 
-                    // Add the snack to the selected snacks display
                     const snackElement = document.createElement('div');
                     snackElement.classList.add('selected-snack');
                     snackElement.innerHTML = `${snackName} ($${snackPrice}) <span class="remove-btn text-white bg-red-500 px-2 py-1 rounded-full">X</span>`;
@@ -223,28 +243,22 @@ if (isset($_SESSION['message'])) {
                     snackElement.dataset.snackPrice = snackPrice;
                     selectedSnacksContainer.appendChild(snackElement);
 
-                    // Add the snack ID to the hidden input field
                     let selectedSnacks = document.getElementById('snacks_selected').value;
                     selectedSnacks += selectedSnacks ? `,${snackId}` : snackId;
                     document.getElementById('snacks_selected').value = selectedSnacks;
 
-                    // Update the total price
                     totalPrice += snackPrice;
                     updateTotalPrice();
 
-                    // Disable the add button for this snack
                     this.disabled = true;
 
-                    // Attach event listener to remove button
                     snackElement.querySelector('.remove-btn').addEventListener('click', function() {
-                        // Remove the snack from the selected list
                         totalPrice -= snackPrice;
                         updateTotalPrice();
 
                         snackElement.remove();
                         document.querySelector(`.snack-list-item[data-snack-id="${snackId}"] .add-snack-btn`).disabled = false;
 
-                        // Update the hidden input field
                         let selectedSnacks = document.getElementById('snacks_selected').value.split(',');
                         selectedSnacks = selectedSnacks.filter(id => id !== snackId);
                         document.getElementById('snacks_selected').value = selectedSnacks.join(',');
@@ -255,12 +269,10 @@ if (isset($_SESSION['message'])) {
             });
         });
 
-        // Function to update the displayed total price
         function updateTotalPrice() {
             document.getElementById('total_price').textContent = `$${totalPrice.toFixed(2)}`;
         }
 
-        // Initialize snack fields on page load
         document.addEventListener('DOMContentLoaded', updateSnackFields);
     </script>
 </body>
