@@ -2,6 +2,13 @@
 session_start();
 $username = isset($_SESSION['username']) ? $_SESSION['username'] : '';
 $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
+
+// Include the database connection file
+include 'dbconnection.php';
+
+// Fetch snack boxes
+$sql = "SELECT id, snackbox_name, snackbox_size, snacks_selected, snackbox_price FROM snackboxes";
+$result = $conn->query($sql);
 ?>
 
 <!DOCTYPE html>
@@ -67,7 +74,18 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
             </div>
             
             <div id="product-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Product cards will be inserted dynamically here -->
+                <?php if ($result->num_rows > 0): ?>
+                    <?php while($row = $result->fetch_assoc()): ?>
+                        <div class="bg-white shadow-md rounded-lg p-4">
+                            <h3 class="text-xl font-bold"><?php echo htmlspecialchars($row['snackbox_name']); ?></h3>
+                            <p>Size: <?php echo htmlspecialchars($row['snackbox_size']); ?></p>
+                            <p>Snacks: <?php echo htmlspecialchars($row['snacks_selected']); ?></p>
+                            <p class="text-lg font-bold text-[#DC143C]">$<?php echo htmlspecialchars(number_format($row['snackbox_price'], 2)); ?></p>
+                        </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <p>No snack boxes available at the moment.</p>
+                <?php endif; ?>
             </div>
         </section>
     </main>
@@ -107,56 +125,6 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
         </div>
     </footer>
 
-    <script>
-        async function fetchProducts() {
-        try {
-            const response = await fetch('http://localhost/tut3/Routes.php/get-all-products');
-
-            console.log('response')
-            console.log(response)
-            const data = await response.json();
-
-            console.log('data')
-            console.log(data)
-
-
-            if (data.status === 'success') {
-                const products = data.data;
-                console.log('products')
-                console.log(products);
-                displayProducts(products);
-            } else {
-                console.error('Error fetching products:', data.message);
-            }
-        } catch (error) {
-            console.error('Error fetching products:', error);
-        }
-    }
-
-
-
-        // Function to display products in the DOM
-        function displayProducts(products) {
-            const productContainer = document.getElementById('product-container');
-            productContainer.innerHTML = ''; // Clear existing content
-
-            products.forEach(product => {
-                const productCard = `
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                        <img src="${product.product_image}" alt="${product.id}" class="w-full h-48 object-cover">
-                        <div class="p-4">
-                            <h3 class="text-lg font-bold text-gray-800">${product.product_name}</h3>
-                            <p class="text-gray-600 mt-2">$${product.product_price}</p>
-                            <p class="text-gray-800 font-bold mt-4">${product.product_quantity}</p>
-                        </div>
-                    </div>
-                `;
-                productContainer.innerHTML += productCard;
-            });
-        }
-
-        // Load products on page load
-        fetchProducts();
-    </script>
 </body>
 </html>
+<?php $conn->close(); ?>

@@ -187,11 +187,11 @@ if (isset($_SESSION['message'])) {
 
             // Set the max snacks allowed based on size
             if (size === 'small') {
-                maxSnacks = 3;
-            } else if (size === 'medium') {
-                maxSnacks = 4;
-            } else if (size === 'large') {
                 maxSnacks = 5;
+            } else if (size === 'medium') {
+                maxSnacks = 7;
+            } else if (size === 'large') {
+                maxSnacks = 9;
             }
 
             // Reset the selected snacks and input field
@@ -218,59 +218,50 @@ if (isset($_SESSION['message'])) {
                     // Add the snack to the selected snacks display
                     const snackElement = document.createElement('div');
                     snackElement.classList.add('selected-snack');
-                    snackElement.innerHTML = ${snackName} ($${snackPrice}) <span class="remove-btn text-white bg-red-500 px-2 py-1 rounded-full">X</span>;
+                    snackElement.innerHTML = `${snackName} ($${snackPrice}) <span class="remove-btn text-white bg-red-500 px-2 py-1 rounded-full">X</span>`;
                     snackElement.dataset.snackId = snackId;
                     snackElement.dataset.snackPrice = snackPrice;
                     selectedSnacksContainer.appendChild(snackElement);
 
                     // Add the snack ID to the hidden input field
                     let selectedSnacks = document.getElementById('snacks_selected').value;
-                    selectedSnacks += selectedSnacks ? ,${snackId} : snackId;
+                    selectedSnacks += selectedSnacks ? `,${snackId}` : snackId;
                     document.getElementById('snacks_selected').value = selectedSnacks;
 
                     // Update the total price
                     totalPrice += snackPrice;
                     updateTotalPrice();
 
-                    // Disable the add button for that snack
+                    // Disable the add button for this snack
                     this.disabled = true;
+
+                    // Attach event listener to remove button
+                    snackElement.querySelector('.remove-btn').addEventListener('click', function() {
+                        // Remove the snack from the selected list
+                        totalPrice -= snackPrice;
+                        updateTotalPrice();
+
+                        snackElement.remove();
+                        document.querySelector(`.snack-list-item[data-snack-id="${snackId}"] .add-snack-btn`).disabled = false;
+
+                        // Update the hidden input field
+                        let selectedSnacks = document.getElementById('snacks_selected').value.split(',');
+                        selectedSnacks = selectedSnacks.filter(id => id !== snackId);
+                        document.getElementById('snacks_selected').value = selectedSnacks.join(',');
+                    });
                 } else {
-                    alert('You can only add ' + maxSnacks + ' snacks for the selected size.');
+                    alert(`You can select a maximum of ${maxSnacks} snacks for this size.`);
                 }
             });
         });
 
-        // Remove snack from the selected list
-        document.getElementById('selected_snacks').addEventListener('click', function(event) {
-            if (event.target.classList.contains('remove-btn')) {
-                const snackElement = event.target.closest('.selected-snack');
-                const snackId = snackElement.dataset.snackId;
-                const snackPrice = parseFloat(snackElement.dataset.snackPrice);
-
-                // Remove from the hidden input field
-                let selectedSnacks = document.getElementById('snacks_selected').value.split(',');
-                selectedSnacks = selectedSnacks.filter(id => id !== snackId);
-                document.getElementById('snacks_selected').value = selectedSnacks.join(',');
-
-                // Enable the add button for that snack
-                document.querySelector([data-snack-id="${snackId}"] .add-snack-btn).disabled = false;
-
-                // Remove the snack element from the list
-                snackElement.remove();
-
-                // Update the total price
-                totalPrice -= snackPrice;
-                updateTotalPrice();
-            }
-        });
-
-        // Function to update the total price display
+        // Function to update the displayed total price
         function updateTotalPrice() {
-            document.getElementById('total_price').textContent = $${totalPrice.toFixed(2)};
+            document.getElementById('total_price').textContent = `$${totalPrice.toFixed(2)}`;
         }
 
-        // Initialize snack fields
-        updateSnackFields();
+        // Initialize snack fields on page load
+        document.addEventListener('DOMContentLoaded', updateSnackFields);
     </script>
 </body>
 </html>
