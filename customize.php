@@ -7,6 +7,13 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
     exit();
 }
 
+// Define box size limits
+$boxSizeLimits = [
+    'large' => 9,
+    'medium' => 7,
+    'small' => 5
+];
+
 // Fetch all products from database with prices
 $sql = "SELECT id, product_name, product_image, product_price FROM products ORDER BY product_name";
 $result = $conn->query($sql);
@@ -27,7 +34,7 @@ foreach ($products as $product) {
     $productPrices[$product['id']] = $product['product_price'];
 }
 
-$userId = $_SESSION['user_id'] ?? null; // Get current user's ID
+$userId = $_SESSION['user_id'] ?? null;
 ?>
 
 <!DOCTYPE html>
@@ -45,6 +52,10 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
         }
         .snack-card:hover {
             transform: translateY(-5px);
+        }
+        .snack-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -75,8 +86,8 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
         </div>
     </nav>
     
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 py-8">
+     <!-- Main Content -->
+     <main class="max-w-7xl mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-[#DC143C] mb-8">Let's Customize</h1>
         
         <!-- Customization Box -->
@@ -98,12 +109,18 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
                     <div class="col-span-4">
                         <div class="mb-6">
                             <span class="text-gray-600">Size :</span>
-                            <select name="box_size" class="border rounded px-2 py-1 ml-2">
+                            <select name="box_size" id="box-size" class="border rounded px-2 py-1 ml-2">
                                 <option value="large">Large</option>
                                 <option value="medium">Medium</option>
                                 <option value="small">Small</option>
                             </select>
                         </div>
+
+                        <!-- Snack limit indicator -->
+                        <div class="mb-4">
+                            <p class="text-gray-600">Selected: <span id="selected-count">0</span>/<span id="max-items">9</span> items</p>
+                        </div>
+
 
                         <div class="bg-white">
                             <h2 class="text-[#DC143C] text-xl font-semibold mb-2">Total Amount</h2>
@@ -136,7 +153,7 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
                         </div>
                     </div>
 
-                    <!-- Right Section: Selected Snacks -->
+                   <!-- Right Section: Selected Snacks -->
                     <div class="col-span-3">
                         <h3 class="text-orange-500 font-semibold mb-4">Selected Snacks</h3>
                         <div id="selected-snacks" class="space-y-2">
@@ -168,7 +185,6 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
             </div>
         </div>
     </main>
-
     
     <!-- Footer -->
     <footer class="bg-[#FFDAC1] py-12 w-full">
@@ -208,122 +224,176 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-                const selectedSnacks = new Set();
-                const maxSnacks = 8;
-                let totalPrice = 0;
+            const selectedSnacks = new Set();
+            const boxSizeLimits = <?php echo json_encode($boxSizeLimits); ?>;
+            let totalPrice = 0;
 
-                const form = document.getElementById('customization-form');
-                const quantityInput = document.getElementById('quantity-input');
-                const totalPriceElement = document.getElementById('total-price');
-                const oneTimePriceElement = document.getElementById('one-time-price');
-                const subscriptionPriceElement = document.getElementById('subscription-price');
-                const selectedProductsInput = document.getElementById('selected-products-input');
-                const totalPriceInput = document.getElementById('total-price-input');
-                const orderTypeInputs = document.querySelectorAll('input[name="order_type"]');
+            const form = document.getElementById('customization-form');
+            const boxSizeSelect = document.getElementById('box-size');
+            const quantityInput = document.getElementById('quantity-input');
+            const totalPriceElement = document.getElementById('total-price');
+            const oneTimePriceElement = document.getElementById('one-time-price');
+            const subscriptionPriceElement = document.getElementById('subscription-price');
+            const selectedProductsInput = document.getElementById('selected-products-input');
+            const totalPriceInput = document.getElementById('total-price-input');
+            const orderTypeInputs = document.querySelectorAll('input[name="order_type"]');
+            const selectedCountElement = document.getElementById('selected-count');
+            const maxItemsElement = document.getElementById('max-items');
 
-                const productPrices = <?php echo json_encode($productPrices); ?>;
-                const subscriptionDiscount = 0.9; // 10% discount for subscription
+            const productPrices = <?php echo json_encode($productPrices); ?>;
+            const subscriptionDiscount = 0.9; // 10% discount for subscription
 
-                function calculateFinalPrice() {
-                    const quantity = parseInt(quantityInput.value) || 1;
-                    const basePrice = totalPrice;
-                    const selectedOrderType = document.querySelector('input[name="order_type"]:checked').value;
-                    
-                    // Calculate one-time and subscription prices
-                    const oneTimeTotal = (basePrice * quantity).toFixed(2);
-                    const subscriptionTotal = (basePrice * quantity * subscriptionDiscount).toFixed(2);
-                    
-                    // Update display prices
-                    oneTimePriceElement.textContent = oneTimeTotal;
-                    subscriptionPriceElement.textContent = subscriptionTotal;
-                    
-                    // Update total price based on selected order type
-                    const finalTotal = selectedOrderType === 'subscription' ? subscriptionTotal : oneTimeTotal;
-                    totalPriceElement.textContent = finalTotal;
-                    totalPriceInput.value = finalTotal;
+            function updateMaxItems() {
+                const boxSize = boxSizeSelect.value;
+                const maxItems = boxSizeLimits[boxSize];
+                maxItemsElement.textContent = maxItems;
+
+                // Remove excess items if box size is decreased
+                if (selectedSnacks.size > maxItems) {
+                    const snacksArray = Array.from(selectedSnacks);
+                    const toRemove = snacksArray.slice(maxItems);
+                    toRemove.forEach(id => removeSnack(id));
                 }
 
-                function updatePriceDisplay() {
-                    calculateFinalPrice();
-                    updateSelectedProducts();
-                }
+                // Update snack cards' disabled state
+                updateSnackCardsState();
+            }
 
-                function updateSelectedProducts() {
-                    selectedProductsInput.value = JSON.stringify(Array.from(selectedSnacks));
-                }
+            function updateSnackCardsState() {
+                const boxSize = boxSizeSelect.value;
+                const maxItems = boxSizeLimits[boxSize];
+                const snackCards = document.querySelectorAll('.snack-card');
 
-                // Add quantity input handler
-                quantityInput.addEventListener('input', updatePriceDisplay);
-
-                // Add order type change handler
-                orderTypeInputs.forEach(input => {
-                    input.addEventListener('change', updatePriceDisplay);
-                });
-
-                // Handle form submission
-                form.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    if (selectedSnacks.size === 0) {
-                        alert('Please select at least one snack!');
-                        return;
+                snackCards.forEach(card => {
+                    if (selectedSnacks.size >= maxItems && !selectedSnacks.has(card.dataset.id)) {
+                        card.classList.add('disabled');
+                    } else {
+                        card.classList.remove('disabled');
                     }
-
-                    updateSelectedProducts();
-                    this.submit();
                 });
+            }
 
-                function addSnackToSelection(snackData) {
-                    if (selectedSnacks.has(snackData.id)) return;
-                    if (selectedSnacks.size >= maxSnacks) {
-                        alert('You can only select up to 8 snacks!');
-                        return;
+            function calculateFinalPrice() {
+                const quantity = parseInt(quantityInput.value) || 1;
+                const basePrice = totalPrice;
+                const selectedOrderType = document.querySelector('input[name="order_type"]:checked').value;
+                
+                const oneTimeTotal = (basePrice * quantity).toFixed(2);
+                const subscriptionTotal = (basePrice * quantity * subscriptionDiscount).toFixed(2);
+                
+                oneTimePriceElement.textContent = oneTimeTotal;
+                subscriptionPriceElement.textContent = subscriptionTotal;
+                
+                const finalTotal = selectedOrderType === 'subscription' ? subscriptionTotal : oneTimeTotal;
+                totalPriceElement.textContent = finalTotal;
+                totalPriceInput.value = finalTotal;
+            }
+
+            function updatePriceDisplay() {
+                calculateFinalPrice();
+                updateSelectedProducts();
+                selectedCountElement.textContent = selectedSnacks.size;
+                updateSnackCardsState();
+            }
+
+            function updateSelectedProducts() {
+                selectedProductsInput.value = JSON.stringify(Array.from(selectedSnacks));
+            }
+
+            function removeSnack(id) {
+                const element = document.querySelector(`[data-id="${id}"]`);
+                if (element) {
+                    selectedSnacks.delete(id);
+                    totalPrice -= parseFloat(productPrices[id]) || 0;
+                    const selectedElement = document.querySelector(`.remove-snack[data-id="${id}"]`).closest('.flex');
+                    if (selectedElement) {
+                        selectedElement.remove();
                     }
-                    
-                    selectedSnacks.add(snackData.id);
-                    totalPrice += parseFloat(productPrices[snackData.id]) || 0;
                     updatePriceDisplay();
+                }
+            }
 
-                    const selectedSnacksContainer = document.getElementById('selected-snacks');
-                    
-                    const snackElement = document.createElement('div');
-                    snackElement.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
-                    snackElement.innerHTML = `
-                        <div class="flex items-center">
-                            <img src="${snackData.image}" alt="${snackData.name}" class="h-8 w-8 rounded">
-                            <span class="ml-2">${snackData.name}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="mr-2">$${productPrices[snackData.id]}</span>
-                            <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
-                        </div>
-                    `;
+            // Add event listeners
+            boxSizeSelect.addEventListener('change', updateMaxItems);
+            quantityInput.addEventListener('input', updatePriceDisplay);
+            orderTypeInputs.forEach(input => {
+                input.addEventListener('change', updatePriceDisplay);
+            });
 
-                    selectedSnacksContainer.appendChild(snackElement);
-
-                    // Add remove handler
-                    snackElement.querySelector('.remove-snack').addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        selectedSnacks.delete(this.dataset.id);
-                        totalPrice -= parseFloat(productPrices[this.dataset.id]) || 0;
-                        updatePriceDisplay();
-                        snackElement.remove();
-                    });
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                if (selectedSnacks.size === 0) {
+                    alert('Please select at least one snack!');
+                    return;
                 }
 
-                // Add click handlers to snack cards
-                document.querySelectorAll('.snack-card').forEach(card => {
-                    card.addEventListener('click', function() {
-                        const snackData = {
-                            id: this.dataset.id,
-                            name: this.dataset.name,
-                            image: this.dataset.image,
-                            price: this.dataset.price
-                        };
-                        addSnackToSelection(snackData);
-                    });
+                const boxSize = boxSizeSelect.value;
+                const maxItems = boxSizeLimits[boxSize];
+                if (selectedSnacks.size > maxItems) {
+                    alert(`You can only select up to ${maxItems} snacks for a ${boxSize} box!`);
+                    return;
+                }
+
+                updateSelectedProducts();
+                this.submit();
+            });
+
+            function addSnackToSelection(snackData) {
+                if (selectedSnacks.has(snackData.id)) return;
+                
+                const boxSize = boxSizeSelect.value;
+                const maxItems = boxSizeLimits[boxSize];
+                
+                if (selectedSnacks.size >= maxItems) {
+                    alert(`You can only select up to ${maxItems} snacks for a ${boxSize} box!`);
+                    return;
+                }
+                
+                selectedSnacks.add(snackData.id);
+                totalPrice += parseFloat(productPrices[snackData.id]) || 0;
+                updatePriceDisplay();
+
+                const selectedSnacksContainer = document.getElementById('selected-snacks');
+                
+                const snackElement = document.createElement('div');
+                snackElement.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
+                snackElement.innerHTML = `
+                    <div class="flex items-center">
+                        <img src="${snackData.image}" alt="${snackData.name}" class="h-8 w-8 rounded">
+                        <span class="ml-2">${snackData.name}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="mr-2">$${productPrices[snackData.id]}</span>
+                        <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
+                    </div>
+                `;
+
+                selectedSnacksContainer.appendChild(snackElement);
+
+                snackElement.querySelector('.remove-snack').addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    removeSnack(this.dataset.id);
+                });
+            }
+
+            document.querySelectorAll('.snack-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    if (this.classList.contains('disabled')) return;
+                    
+                    const snackData = {
+                        id: this.dataset.id,
+                        name: this.dataset.name,
+                        image: this.dataset.image,
+                        price: this.dataset.price
+                    };
+                    addSnackToSelection(snackData);
                 });
             });
+
+            // Initialize the page
+            updateMaxItems();
+        });
     </script>
 </body>
 </html>
