@@ -25,8 +25,8 @@ $product = $result->fetch_assoc();
 $selected_snacks = explode(',', $product['snacks_selected']);
 
 // Fetch product names for selected snacks
-$product_ids = array_map('trim', $selected_snacks); // Clean the IDs
-$product_ids_string = implode(',', $product_ids); // Convert array to comma-separated string
+$product_ids = array_map('trim', $selected_snacks);
+$product_ids_string = implode(',', $product_ids);
 
 // Fetch product names from products table
 $products_sql = "SELECT product_name FROM products WHERE id IN ($product_ids_string)";
@@ -49,7 +49,7 @@ if ($products_result && $products_result->num_rows > 0) {
     <title><?php echo htmlspecialchars($product['snackbox_name']); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     <!-- Navigation Bar -->
     <nav class="bg-white py-4">
         <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
@@ -89,6 +89,7 @@ if ($products_result && $products_result->num_rows > 0) {
                         >
                     </div>
                 </div>
+                
 
                 <!-- Product Details -->
                 <div class="md:w-1/2 p-6">
@@ -116,27 +117,29 @@ if ($products_result && $products_result->num_rows > 0) {
 
                             <div class="bg-white">
                                 <h2 class="text-[#DC143C] text-xl font-semibold mb-2">Total Amount</h2>
-                                <p class="text-green-600 text-2xl font-bold mb-4">$<?php echo number_format($product['snackbox_price'], 2); ?></p>
+                                <p class="text-green-600 text-2xl font-bold mb-4" id="totalAmount">
+                                    $<?php echo number_format($product['snackbox_price'], 2); ?>
+                                </p>
                                 
                                 <div class="mb-4">
                                     <label class="block text-gray-700 mb-2">Quantity</label>
-                                    <input class="w-full border rounded px-3 py-2" type="number" name="quantity" value="1" min="1">
+                                    <input class="w-full border rounded px-3 py-2" type="number" name="quantity" value="1" min="1" id="quantity">
                                 </div>
 
                                 <div class="space-y-2 mb-6">
                                     <label class="flex items-center justify-between">
                                         <div class="flex items-center">
-                                            <input type="radio" name="order_type" checked>
+                                            <input type="radio" name="order_type" value="onetime" checked id="onetimeOrder">
                                             <span class="ml-2">One-time order</span>
                                         </div>
                                         <span>$<?php echo number_format($product['snackbox_price'], 2); ?></span>
                                     </label>
                                     <label class="flex items-center justify-between">
                                         <div class="flex items-center">
-                                            <input type="radio" name="order_type">
+                                            <input type="radio" name="order_type" value="subscription" id="subscriptionOrder">
                                             <span class="ml-2">Subscribe & Save</span>
                                         </div>
-                                        <span>(Monthly) $<?php echo number_format($product['snackbox_price'], 2); ?></span>
+                                        <span>(Monthly) $<?php echo number_format($product['snackbox_price'] * 0.9, 2); ?></span>
                                     </label>
                                 </div>
 
@@ -144,6 +147,7 @@ if ($products_result && $products_result->num_rows > 0) {
                                 <button class="w-full border border-orange-400 text-orange-400 py-2 rounded-md">+ Add to Cart</button>
                             </div>
                         </div>
+
 
                         <!-- Description -->
                         <div class="pt-6">
@@ -201,6 +205,38 @@ if ($products_result && $products_result->num_rows > 0) {
             </div>
         </div>
     </footer>
+
+    <script>
+        // Get base price from PHP
+        const basePrice = <?php echo $product['snackbox_price']; ?>;
+        
+        // Function to update total amount
+        function updateTotalAmount() {
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const orderType = document.querySelector('input[name="order_type"]:checked').value;
+            
+            // Calculate price based on order type
+            let price = basePrice;
+            if (orderType === 'subscription') {
+                // 10% discount for subscription
+                price = basePrice * 0.9;
+            }
+            
+            // Calculate total
+            const total = price * quantity;
+            
+            // Update display
+            document.getElementById('totalAmount').textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Add event listeners
+        document.getElementById('quantity').addEventListener('change', updateTotalAmount);
+        document.getElementById('onetimeOrder').addEventListener('change', updateTotalAmount);
+        document.getElementById('subscriptionOrder').addEventListener('change', updateTotalAmount);
+        
+        // Initialize total amount
+        updateTotalAmount();
+    </script>
 </body>
 </html>
 <?php 

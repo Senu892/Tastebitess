@@ -57,9 +57,9 @@ $result = $conn->query($sql);
         <p class="hero-text-color mb-8">
             Discover global flavors with our curated snack boxes. From familiar treats to rare rarities, TasteBites has it all. Explore tastes from across the globe – all perfectly packaged and delivered to your door!
         </p>
-        <button class="bg-[#DC143C] text-white px-8 py-3 rounded-full">
+        <a href="#slide"><button class="bg-[#DC143C] text-white px-8 py-3 rounded-full">
             Order Now
-        </button>
+        </button></a>
     </div>
     <div class="scale-150 transform origin-center"> <!-- Added scaling -->
         <img src="index-hero.png" alt="Snack Box Collection" class="w-full">
@@ -67,7 +67,7 @@ $result = $conn->query($sql);
 </section>
 
         <!-- Customized Snack Boxes -->
-        <section class="max-w-7xl mx-auto px-4 py-16">
+        <section id="slide" class="max-w-7xl mx-auto px-4 py-16">
             <div class="text-center mb-12">
                 <h2 class="text-[#DC143C] text-2xl font-bold">Customized Snack Boxes</h2>
                 <h3 class="text-3xl font-bold mt-2">Find Your Perfect Box</h3>
@@ -86,7 +86,6 @@ $result = $conn->query($sql);
                                 <div class="p-4">
                                     <h3 class="text-xl font-bold"><?php echo htmlspecialchars($row['snackbox_name']); ?></h3>
                                     <p>Size: <?php echo htmlspecialchars($row['snackbox_size']); ?></p>
-                                    <p>Snacks: <?php echo htmlspecialchars($row['snacks_selected']); ?></p>
                                     <p class="text-lg font-bold text-[#DC143C]">$<?php echo htmlspecialchars(number_format($row['snackbox_price'], 2)); ?></p>
                                 </div>
                             </a>

@@ -93,7 +93,7 @@
             }
 
             try {
-                const response = await fetch('api.php?action=login', {
+                const response = await fetch('../api.php?action=admin-login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -103,16 +103,16 @@
 
                 const data = await response.json();
                 messageDiv.classList.remove('hidden');
-                
+                console.log(data.message)
                 // Update the success handler in your login form submission
                     if (data.status === 'success') {
                         // Show success message
                         messageDiv.innerHTML = `<p class="text-green-600">${data.message}</p>`;
-                       
+                        
                         
                         // Redirect after successful login
                         setTimeout(() => {
-                            window.location.href = 'index.php';
+                            window.location.href = 'admindash.php';
                         }, 1500);
                     } else {
                     // Show error message

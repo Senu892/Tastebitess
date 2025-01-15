@@ -129,7 +129,7 @@ if (!empty($selectedProducts)) {
         }
     </style>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class=" bg-gray-100 flex flex-col min-h-screen">
     <!-- Navigation Bar -->
     <nav class="bg-white py-4">
         <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">

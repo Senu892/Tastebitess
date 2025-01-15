@@ -174,6 +174,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 sendResponse('error', 'Database error: ' . $e->getMessage());
             }
         }
+        elseif ($action === 'admin-login') {
+            // Validate required fields
+            if (empty($data['email']) || empty($data['password'])) {
+                sendResponse('error', 'Email and password are required');
+            }
+        
+            try {
+                // Get user by email and ensure they are an admin
+                $stmt = $conn->prepare("SELECT user_id, user_type, full_name, username, email, password FROM user WHERE email = ? AND user_type = 'admin'");
+                if (!$stmt) {
+                    throw new Exception($conn->error);
+                }
+                $stmt->bind_param("s", $data['email']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+        
+                if ($result->num_rows === 0) {
+                    sendResponse('error', 'Invalid credentials or insufficient privileges');
+                }
+        
+                $admin = $result->fetch_assoc();
+        
+                // Verify password
+                if (!password_verify($data['password'], $admin['password'])) {
+                    sendResponse('error', 'Invalid credentials or insufficient privileges');
+                }
+        
+                // Start admin session and store admin data
+                session_start();
+                $_SESSION['admin_id'] = $admin['user_id'];
+                $_SESSION['admin_username'] = $admin['username'];
+                $_SESSION['user_type'] = $admin['user_type'];
+                $_SESSION['is_admin'] = true;
+                $_SESSION['admin_logged_in'] = true;
+        
+                // Return admin data (excluding password)
+                unset($admin['password']);
+                $admin['login_time'] = date('Y-m-d H:i:s');
+                
+                sendResponse('success', 'Admin login successful', $admin);
+            } catch (Exception $e) {
+                sendResponse('error', 'Database error: ' . $e->getMessage());
+            }
+        }
         else {
             sendResponse('error', 'Invalid action');
         }

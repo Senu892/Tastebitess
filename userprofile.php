@@ -72,7 +72,7 @@ try {
     <title>My Account - TasteBites</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen flex flex-col bg-gray-50">
+<body class="min-h-screen flex flex-col bg-gray-100">
     <!-- Navigation Bar -->
 <nav class="bg-white py-4">
     <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">

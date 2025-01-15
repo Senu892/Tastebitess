@@ -16,14 +16,7 @@
             </div>
             <form id="signupForm" class="mt-8 space-y-6">
                 <div class="space-y-4">
-                    <div>
-                        <label for="user_type" class="block text-sm font-medium text-gray-700">User Type</label>
-                        <select id="user_type" name="user_type" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                            <option value="">Select type</option>
-                            <option value="customer">Customer</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
+                    
                     
                     <div>
                         <label for="full_name" class="block text-sm font-medium text-gray-700">Full Name</label>

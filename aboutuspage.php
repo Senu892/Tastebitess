@@ -12,7 +12,7 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
     <title>About Us</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     <!-- Navigation Bar -->
     <nav class="bg-white py-4 z-10">
         <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
