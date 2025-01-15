@@ -90,7 +90,7 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
                     <!-- Left Section: Box Image -->
                     <div class="col-span-5">
                         <div class="bg-[#FFF5EE] rounded-lg p-8">
-                            <img src="snack.jpg" alt="Snack Box" class="w-full">
+                            <img src="snack.png" alt="Snack Box" class="w-full">
                         </div>
                     </div>
 
@@ -208,107 +208,122 @@ $userId = $_SESSION['user_id'] ?? null; // Get current user's ID
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const selectedSnacks = new Set();
-            const maxSnacks = 8;
-            let totalPrice = 0;
+                const selectedSnacks = new Set();
+                const maxSnacks = 8;
+                let totalPrice = 0;
 
-            const form = document.getElementById('customization-form');
-            const quantityInput = document.getElementById('quantity-input');
-            const totalPriceElement = document.getElementById('total-price');
-            const oneTimePriceElement = document.getElementById('one-time-price');
-            const subscriptionPriceElement = document.getElementById('subscription-price');
-            const selectedProductsInput = document.getElementById('selected-products-input');
-            const totalPriceInput = document.getElementById('total-price-input');
+                const form = document.getElementById('customization-form');
+                const quantityInput = document.getElementById('quantity-input');
+                const totalPriceElement = document.getElementById('total-price');
+                const oneTimePriceElement = document.getElementById('one-time-price');
+                const subscriptionPriceElement = document.getElementById('subscription-price');
+                const selectedProductsInput = document.getElementById('selected-products-input');
+                const totalPriceInput = document.getElementById('total-price-input');
+                const orderTypeInputs = document.querySelectorAll('input[name="order_type"]');
 
-            const productPrices = <?php echo json_encode($productPrices); ?>;
-
-            function updatePriceDisplay() {
-                const quantity = parseInt(quantityInput.value) || 1;
-                const basePrice = totalPrice;
-                const total = (basePrice * quantity).toFixed(2);
+                const productPrices = <?php echo json_encode($productPrices); ?>;
                 const subscriptionDiscount = 0.9; // 10% discount for subscription
 
-                totalPriceElement.textContent = total;
-                oneTimePriceElement.textContent = total;
-                subscriptionPriceElement.textContent = (total * subscriptionDiscount).toFixed(2);
-                
-                // Update hidden input for total price
-                totalPriceInput.value = total;
-            }
-
-            function updateSelectedProducts() {
-                selectedProductsInput.value = JSON.stringify(Array.from(selectedSnacks));
-            }
-
-            // Add quantity input handler
-            quantityInput.addEventListener('input', updatePriceDisplay);
-
-            // Handle form submission
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                if (selectedSnacks.size === 0) {
-                    alert('Please select at least one snack!');
-                    return;
+                function calculateFinalPrice() {
+                    const quantity = parseInt(quantityInput.value) || 1;
+                    const basePrice = totalPrice;
+                    const selectedOrderType = document.querySelector('input[name="order_type"]:checked').value;
+                    
+                    // Calculate one-time and subscription prices
+                    const oneTimeTotal = (basePrice * quantity).toFixed(2);
+                    const subscriptionTotal = (basePrice * quantity * subscriptionDiscount).toFixed(2);
+                    
+                    // Update display prices
+                    oneTimePriceElement.textContent = oneTimeTotal;
+                    subscriptionPriceElement.textContent = subscriptionTotal;
+                    
+                    // Update total price based on selected order type
+                    const finalTotal = selectedOrderType === 'subscription' ? subscriptionTotal : oneTimeTotal;
+                    totalPriceElement.textContent = finalTotal;
+                    totalPriceInput.value = finalTotal;
                 }
 
-                updateSelectedProducts();
-                this.submit();
-            });
-
-            function addSnackToSelection(snackData) {
-                if (selectedSnacks.has(snackData.id)) return;
-                if (selectedSnacks.size >= maxSnacks) {
-                    alert('You can only select up to 8 snacks!');
-                    return;
-                }
-                
-                selectedSnacks.add(snackData.id);
-                totalPrice += parseFloat(productPrices[snackData.id]) || 0;
-                updatePriceDisplay();
-                updateSelectedProducts();
-
-                const selectedSnacksContainer = document.getElementById('selected-snacks');
-                
-                const snackElement = document.createElement('div');
-                snackElement.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
-                snackElement.innerHTML = `
-                    <div class="flex items-center">
-                        <img src="${snackData.image}" alt="${snackData.name}" class="h-8 w-8 rounded">
-                        <span class="ml-2">${snackData.name}</span>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="mr-2">$${productPrices[snackData.id]}</span>
-                        <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
-                    </div>
-                `;
-
-                selectedSnacksContainer.appendChild(snackElement);
-
-                // Add remove handler
-                snackElement.querySelector('.remove-snack').addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    selectedSnacks.delete(this.dataset.id);
-                    totalPrice -= parseFloat(productPrices[this.dataset.id]) || 0;
-                    updatePriceDisplay();
+                function updatePriceDisplay() {
+                    calculateFinalPrice();
                     updateSelectedProducts();
-                    snackElement.remove();
-                });
-            }
+                }
 
-            // Add click handlers to snack cards
-            document.querySelectorAll('.snack-card').forEach(card => {
-                card.addEventListener('click', function() {
-                    const snackData = {
-                        id: this.dataset.id,
-                        name: this.dataset.name,
-                        image: this.dataset.image,
-                        price: this.dataset.price
-                    };
-                    addSnackToSelection(snackData);
+                function updateSelectedProducts() {
+                    selectedProductsInput.value = JSON.stringify(Array.from(selectedSnacks));
+                }
+
+                // Add quantity input handler
+                quantityInput.addEventListener('input', updatePriceDisplay);
+
+                // Add order type change handler
+                orderTypeInputs.forEach(input => {
+                    input.addEventListener('change', updatePriceDisplay);
+                });
+
+                // Handle form submission
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    if (selectedSnacks.size === 0) {
+                        alert('Please select at least one snack!');
+                        return;
+                    }
+
+                    updateSelectedProducts();
+                    this.submit();
+                });
+
+                function addSnackToSelection(snackData) {
+                    if (selectedSnacks.has(snackData.id)) return;
+                    if (selectedSnacks.size >= maxSnacks) {
+                        alert('You can only select up to 8 snacks!');
+                        return;
+                    }
+                    
+                    selectedSnacks.add(snackData.id);
+                    totalPrice += parseFloat(productPrices[snackData.id]) || 0;
+                    updatePriceDisplay();
+
+                    const selectedSnacksContainer = document.getElementById('selected-snacks');
+                    
+                    const snackElement = document.createElement('div');
+                    snackElement.className = 'flex items-center justify-between bg-gray-50 p-2 rounded';
+                    snackElement.innerHTML = `
+                        <div class="flex items-center">
+                            <img src="${snackData.image}" alt="${snackData.name}" class="h-8 w-8 rounded">
+                            <span class="ml-2">${snackData.name}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="mr-2">$${productPrices[snackData.id]}</span>
+                            <button class="text-gray-400 hover:text-gray-600 remove-snack" data-id="${snackData.id}">×</button>
+                        </div>
+                    `;
+
+                    selectedSnacksContainer.appendChild(snackElement);
+
+                    // Add remove handler
+                    snackElement.querySelector('.remove-snack').addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        selectedSnacks.delete(this.dataset.id);
+                        totalPrice -= parseFloat(productPrices[this.dataset.id]) || 0;
+                        updatePriceDisplay();
+                        snackElement.remove();
+                    });
+                }
+
+                // Add click handlers to snack cards
+                document.querySelectorAll('.snack-card').forEach(card => {
+                    card.addEventListener('click', function() {
+                        const snackData = {
+                            id: this.dataset.id,
+                            name: this.dataset.name,
+                            image: this.dataset.image,
+                            price: this.dataset.price
+                        };
+                        addSnackToSelection(snackData);
+                    });
                 });
             });
-        });
     </script>
 </body>
 </html>
