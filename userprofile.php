@@ -42,18 +42,18 @@ try {
     }
 
     // Get user's orders with product names
+    // First get the orders
     $orders_stmt = $conn->prepare("
         SELECT 
             o.order_id,
             o.order_date,
-            p.product_name,
+            o.product_id,
             o.snackbox_size,
             o.product_price,
             o.product_quantity,
             o.order_status,
             o.payment_type
         FROM orders o
-        LEFT JOIN products p ON o.product_id = p.id
         WHERE o.user_id = ? 
         ORDER BY o.order_date DESC
     ");
@@ -61,7 +61,26 @@ try {
     $orders_stmt->execute();
     $orders_result = $orders_stmt->get_result();
     $orders = [];
+    
     while ($order = $orders_result->fetch_assoc()) {
+        // Get all products for this order
+        $product_ids = explode(',', $order['product_id']);
+        $product_names = [];
+        
+        // Prepare and execute query for each product
+        $product_stmt = $conn->prepare("SELECT product_name FROM products WHERE id = ?");
+        
+        foreach ($product_ids as $pid) {
+            $product_stmt->bind_param("i", $pid);
+            $product_stmt->execute();
+            $product_result = $product_stmt->get_result();
+            if ($product_row = $product_result->fetch_assoc()) {
+                $product_names[] = $product_row['product_name'];
+            }
+        }
+        
+        // Add the product names to the order array
+        $order['product_names'] = implode(', ', $product_names);
         $orders[] = $order;
     }
 
@@ -89,30 +108,30 @@ try {
 </head>
 <body class="min-h-screen flex flex-col bg-gray-100" x-data="{ editModal: false }">
     <!-- Navigation Bar -->
-<nav class="bg-white py-4">
-    <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
-        <img src="logo.png" alt="TasteBites" class="h-8">
-        <div class="flex space-x-8 items-center">
-            <a href="index.php" class="text-black">Home</a>
-            <a href="customize.php" class="text-black">Customize</a>
-            <a href="subscription.php" class="text-black">Subscription</a>
-            <a href="aboutuspage.php" class="text-black">About Us</a>
-            <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
-                <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
-                    <?php echo htmlspecialchars($_SESSION['username']); ?>
-                </a>
-                <a href="logout.php" class="text-black">Logout</a>
-            <?php else: ?>
-                <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
-            <?php endif; ?>
-            <button class="text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-            </button>
+    <nav class="bg-white py-4">
+        <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+            <img src="logo.png" alt="TasteBites" class="h-8">
+            <div class="flex space-x-8 items-center">
+                <a href="index.php" class="text-black">Home</a>
+                <a href="customize.php" class="text-black">Customize</a>
+                <a href="subscription.php" class="text-black">Subscription</a>
+                <a href="aboutuspage.php" class="text-black">About Us</a>
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                    <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                        <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    </a>
+                    <a href="logout.php" class="text-black">Logout</a>
+                <?php else: ?>
+                    <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+                <?php endif; ?>
+                <button class="text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                </button>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
     <!-- Edit Profile Modal -->
     <div x-show="editModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -181,7 +200,6 @@ try {
             <!-- Personal Info Card -->
             <div class="bg-orange-50 rounded-lg p-6 shadow-sm hover:shadow-md transition">
                 <div class="flex items-center space-x-4">
-                    
                     <div class="flex-1">
                         <div class="flex justify-between items-start">
                             <h3 class="font-medium text-lg"><?php echo htmlspecialchars($user['full_name']); ?></h3>
@@ -223,7 +241,7 @@ try {
                                 <th class="px-6 py-4">Order ID</th>
                                 <th class="px-6 py-4">Date</th>
                                 <th class="px-6 py-4">Size</th>
-                                <th class="px-6 py-4">Product</th>
+                                <th class="px-6 py-4">Products</th>
                                 <th class="px-6 py-4">Price</th>
                                 <th class="px-6 py-4">Quantity</th>
                                 <th class="px-6 py-4">Payment</th>
@@ -243,10 +261,10 @@ try {
                                     <td class="px-6 py-4"><?php echo htmlspecialchars($order['snackbox_size']); ?></td>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center space-x-3">
-                                            <div class="w-10 h-10 bg-gray-200 rounded"></div>
+                                            
                                             <span class="font-medium">
                                                 <?php 
-                                                    echo !empty($order['product_name']) ? htmlspecialchars($order['product_name']) : 'Customized Box';
+                                                    echo !empty($order['product_names']) ? htmlspecialchars($order['product_names']) : 'Customized Box';
                                                 ?>
                                             </span>
                                         </div>
@@ -256,7 +274,7 @@ try {
                                     <td class="px-6 py-4"><?php echo htmlspecialchars($order['payment_type'] ?? 'Standard'); ?></td>
                                     <td class="px-6 py-4">
                                         <button class="px-4 py-1.5 text-orange-500 border border-orange-500 rounded-full text-sm hover:bg-orange-50 transition">
-                                            <?php echo htmlspecialchars($order['order_status']); ?>
+                                        <?php echo htmlspecialchars($order['order_status']); ?>
                                         </button>
                                     </td>
                                 </tr>

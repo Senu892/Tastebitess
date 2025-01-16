@@ -105,58 +105,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
     if ($stmt->execute()) {
         // Order saved successfully
         $orderId = $conn->insert_id;
-        exit();
-    } else {
-        // Handle error
-        $error = "Error processing your order. Please try again.";
-    }
-}
-
-// Get selected products details
-$selectedProducts = json_decode($_POST['selected_products'], true);
-$boxSize = $_POST['box_size'];
-$quantity = $_POST['quantity'];
-$orderType = $_POST['order_type'];
-$totalPrice = $_POST['total_price'];
-
-// Convert the products array to a comma-separated string
-$productIdsString = implode(',', $selectedProducts);
-
-// Calculate final prices
-$subtotal = floatval($totalPrice);
-$shipping = 3.00;
-$finalTotal = $subtotal + $shipping;
-
-// Process the order when form is submitted
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
-    // Prepare the order insertion query
-    $orderQuery = "INSERT INTO Orders (
-        user_id, 
-        order_type, 
-        product_id,
-        snackbox_size, 
-        product_price, 
-        product_quantity, 
-        payment_type
-    ) VALUES (?, 'Customized', ?, ?, ?, ?, ?)";
-    
-    $paymentType = ($orderType === 'subscription') ? 'Subscription' : 'One-Time';
-    
-    $stmt = $conn->prepare($orderQuery);
-    $stmt->bind_param(
-        "issdis",  // Changed parameter type for product_price to 'd' for double
-        $userId,
-        $productIdsString,  // Using the comma-separated string instead of array
-        $boxSize,
-        $finalTotal,
-        $quantity,
-        $paymentType
-    );
-
-    if ($stmt->execute()) {
-        // Order saved successfully
-        $orderId = $conn->insert_id;
-        
+        $_SESSION['order_success'] = true;
+        echo "<script>
+            alert('Order placed successfully!');
+            window.location.href = 'index.php';
+        </script>";
         exit();
     } else {
         // Handle error
@@ -239,6 +192,19 @@ if (!empty($selectedProducts)) {
     
 
     <main class="flex-grow py-8">
+    <?php if (isset($_GET['success']) && $_GET['success'] === 'true'): ?>
+    <div class="max-w-[1200px] mx-auto px-6 mb-8">
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">Success!</strong>
+            <span class="block sm:inline"> Your order has been placed successfully.</span>
+            <div class="mt-2">
+                <a href="index.php" class="inline-block bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    Return to Home
+                </a>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
         <!-- Main Container -->
         <div class="max-w-[1200px] mx-auto px-6">
             <!-- Header -->
@@ -253,18 +219,16 @@ if (!empty($selectedProducts)) {
             <div class="grid grid-cols-[1.2fr,0.8fr] gap-8">
                 <!-- Left Column - Payment -->
                 <div class="bg-orange-50 rounded-2xl p-8">
-                    <!-- Credit Card Display -->
-                    <div class="mb-8 max-w-md">
-                        <div class="card-gradient rounded-xl p-4 aspect-[1.6/1] relative shadow-sm">
-                            <div class="absolute bottom-4 left-4">
-                                <div class="flex gap-2 mb-2">
-                                    <div class="w-8 h-5 bg-white/20 rounded"></div>
-                                    <div class="w-8 h-5 bg-white/20 rounded"></div>
-                                </div>
+                   <!-- Credit Card Display -->
+                        <div class="mb-8 max-w-md">
+                            <div class="rounded-xl aspect-[1.6/1] relative shadow-sm overflow-hidden">
+                                <img src="visacard.png" alt="VISA" class="absolute inset-0 h-full w-full object-cover">
                             </div>
-                            <img src="visa.png" alt="VISA" class="h-8 absolute top-4 right-4">
                         </div>
-                    </div>
+
+
+
+
 
                     <!-- Payment Form -->
                     <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST" id="payment-form">
