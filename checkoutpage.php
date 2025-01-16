@@ -2,6 +2,35 @@
 session_start();
 include_once './dbconnection.php';
 
+// Handle profile update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
+    $userId = $_SESSION['user_id'];
+    $fullName = $_POST['full_name'];
+    $phone = $_POST['phone'];
+    $address = $_POST['address'];
+    
+    $updateQuery = "UPDATE user SET full_name = ?, phone = ?, address = ? WHERE user_id = ?";
+    $stmt = $conn->prepare($updateQuery);
+    $stmt->bind_param("sssi", $fullName, $phone, $address, $userId);
+    
+    if ($stmt->execute()) {
+        // Refresh user data after update
+        $userQuery = "SELECT full_name, phone, address FROM user WHERE user_id = ?";
+        $stmt = $conn->prepare($userQuery);
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $userResult = $stmt->get_result();
+        $userData = $userResult->fetch_assoc();
+    }
+
+    // Preserve checkout data
+    $_POST['selected_products'] = $_POST['previous_selected_products'];
+    $_POST['total_price'] = $_POST['previous_total_price'];
+    $_POST['box_size'] = $_POST['previous_box_size'];
+    $_POST['quantity'] = $_POST['previous_quantity'];
+    $_POST['order_type'] = $_POST['previous_order_type'];
+}
+
 // Check if user is logged in
 if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
     header('Location: login.php');
@@ -30,6 +59,57 @@ if ($userResult->num_rows > 0) {
         'phone' => 'N/A',
         'address' => 'N/A'
     ];
+}
+
+// Get selected products details
+$selectedProducts = json_decode($_POST['selected_products'], true);
+$boxSize = $_POST['box_size'];
+$quantity = $_POST['quantity'];
+$orderType = $_POST['order_type'];
+$totalPrice = $_POST['total_price'];
+
+// Convert the products array to a comma-separated string
+$productIdsString = implode(',', $selectedProducts);
+
+// Calculate final prices
+$subtotal = floatval($totalPrice);
+$shipping = 3.00;
+$finalTotal = $subtotal + $shipping;
+
+// Process the order when form is submitted
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
+    // Prepare the order insertion query
+    $orderQuery = "INSERT INTO Orders (
+        user_id, 
+        order_type, 
+        product_id,
+        snackbox_size, 
+        product_price, 
+        product_quantity, 
+        payment_type
+    ) VALUES (?, 'Customized', ?, ?, ?, ?, ?)";
+    
+    $paymentType = ($orderType === 'subscription') ? 'Subscription' : 'One-Time';
+    
+    $stmt = $conn->prepare($orderQuery);
+    $stmt->bind_param(
+        "issdis",
+        $userId,
+        $productIdsString,
+        $boxSize,
+        $finalTotal,
+        $quantity,
+        $paymentType
+    );
+
+    if ($stmt->execute()) {
+        // Order saved successfully
+        $orderId = $conn->insert_id;
+        exit();
+    } else {
+        // Handle error
+        $error = "Error processing your order. Please try again.";
+    }
 }
 
 // Get selected products details
@@ -156,6 +236,8 @@ if (!empty($selectedProducts)) {
         </div>
     </nav>
 
+    
+
     <main class="flex-grow py-8">
         <!-- Main Container -->
         <div class="max-w-[1200px] mx-auto px-6">
@@ -219,15 +301,46 @@ if (!empty($selectedProducts)) {
                     <!-- Profile Box -->
                     <div class="bg-orange-50 rounded-2xl p-6">
                         <div class="flex justify-between items-start">
-                            <div class="flex items-start gap-3">
+                            <div class="flex items-start gap-3 w-full" id="profile-display">
                                 <div class="w-8 h-8 bg-white rounded-full"></div>
                                 <div>
-                                    <p><?php echo htmlspecialchars($userData['full_name']); ?></p>
-                                    <p><?php echo htmlspecialchars($userData['address']); ?></p>
-                                    <p><?php echo htmlspecialchars($userData['phone']); ?></p>
+                                    <p id="display-name"><?php echo htmlspecialchars($userData['full_name']); ?></p>
+                                    <p id="display-address"><?php echo htmlspecialchars($userData['address']); ?></p>
+                                    <p id="display-phone"><?php echo htmlspecialchars($userData['phone']); ?></p>
                                 </div>
                             </div>
-                            <button class="text-rose-500">
+                            <!-- Edit Form (Initially Hidden) -->
+                            <form id="profile-edit-form" class="hidden w-full" method="POST">
+                                <input type="hidden" name="update_profile" value="1">
+                                <input type="hidden" name="previous_selected_products" value='<?php echo htmlspecialchars($_POST['selected_products']); ?>'>
+                                <input type="hidden" name="previous_total_price" value="<?php echo htmlspecialchars($_POST['total_price']); ?>">
+                                <input type="hidden" name="previous_box_size" value="<?php echo htmlspecialchars($_POST['box_size']); ?>">
+                                <input type="hidden" name="previous_quantity" value="<?php echo htmlspecialchars($_POST['quantity']); ?>">
+                                <input type="hidden" name="previous_order_type" value="<?php echo htmlspecialchars($_POST['order_type']); ?>">
+                                
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Full Name</label>
+                                        <input type="text" name="full_name" class="w-full p-2 border rounded" 
+                                            value="<?php echo htmlspecialchars($userData['full_name']); ?>">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Address</label>
+                                        <input type="text" name="address" class="w-full p-2 border rounded"
+                                            value="<?php echo htmlspecialchars($userData['address']); ?>">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm text-gray-600 mb-1">Phone</label>
+                                        <input type="text" name="phone" class="w-full p-2 border rounded"
+                                            value="<?php echo htmlspecialchars($userData['phone']); ?>">
+                                    </div>
+                                    <div class="flex gap-2">
+                                        <button type="submit" class="bg-rose-500 text-white px-4 py-2 rounded">Save</button>
+                                        <button type="button" onclick="toggleEdit()" class="bg-gray-300 px-4 py-2 rounded">Cancel</button>
+                                    </div>
+                                </div>
+                            </form>
+                            <button onclick="toggleEdit()" class="text-rose-500" id="edit-button">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                                 </svg>
@@ -242,7 +355,7 @@ if (!empty($selectedProducts)) {
                         <div class="space-y-4 mb-6">
                             <div class="flex items-center gap-4">
                                 <div class="w-16 h-16 bg-white rounded-xl p-2">
-                                    <img src="snack.jpg" alt="Japanese Snacks Box" class="w-full h-full object-contain">
+                                    <img src="snack.png" alt="Japanese Snacks Box" class="w-full h-full object-contain">
                                 </div>
                                 <div class="flex-grow">
                                     <p class="text-gray-900 font-medium">Custom Snack Box</p>
@@ -314,6 +427,48 @@ if (!empty($selectedProducts)) {
     </footer>
 
     <script>
+    // Profile editing functions
+    function toggleEdit() {
+        const displayEl = document.getElementById('profile-display');
+        const formEl = document.getElementById('profile-edit-form');
+        const editButton = document.getElementById('edit-button');
+        
+        if (formEl.classList.contains('hidden')) {
+            displayEl.classList.add('hidden');
+            formEl.classList.remove('hidden');
+            editButton.classList.add('hidden');
+        } else {
+            displayEl.classList.remove('hidden');
+            formEl.classList.add('hidden');
+            editButton.classList.remove('hidden');
+        }
+    }
+
+    // Profile form validation
+    document.getElementById('profile-edit-form').addEventListener('submit', function(e) {
+        const phone = document.querySelector('input[name="phone"]').value;
+        const fullName = document.querySelector('input[name="full_name"]').value;
+        const address = document.querySelector('input[name="address"]').value;
+
+        if (!fullName.trim()) {
+            e.preventDefault();
+            alert('Please enter your full name');
+            return;
+        }
+
+        if (!address.trim()) {
+            e.preventDefault();
+            alert('Please enter your address');
+            return;
+        }
+
+        if (!phone.trim() || !/^\d{10}$/.test(phone.replace(/\D/g, ''))) {
+            e.preventDefault();
+            alert('Please enter a valid 10-digit phone number');
+            return;
+        }
+    });
+
     // Format card number input
     document.querySelector('input[name="card_number"]').addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
@@ -346,15 +501,12 @@ if (!empty($selectedProducts)) {
         e.target.value = value;
     });
 
-    // Add basic form validation
+    // Add basic form validation for payment
     document.getElementById('payment-form').addEventListener('submit', function(e) {
         const cardholderName = document.querySelector('input[name="cardholder_name"]').value;
         const cardNumber = document.querySelector('input[name="card_number"]').value.replace(/\s/g, '');
         const expDate = document.querySelector('input[name="exp_date"]').value;
         const cvc = document.querySelector('input[name="cvc"]').value;
-
-        // For this example, we'll just do basic validation
-        // In a real application, you'd want more robust validation
 
         if (cardholderName.trim() === '') {
             e.preventDefault();
