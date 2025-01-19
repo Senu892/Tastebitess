@@ -1,34 +1,55 @@
 <?php
 session_start();
+include_once './dbconnection.php';
 
-// Initialize session variables with default values
-$username = '';
-$isLoggedIn = false;
-
-// Check if user is logged in and set variables
-if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-    $isLoggedIn = true;
-    $username = isset($_SESSION['username']) ? htmlspecialchars($_SESSION['username']) : '';
+// Check if user is logged in
+if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
+    header('Location: login.php');
+    exit();
 }
 
-// Include the database connection file
-include 'dbconnection.php';
+// Get logged-in user ID
+$userId = $_SESSION['user_id'];
 
-// Fetch snack boxes
-$sql = "SELECT id, snackbox_name, snackbox_size, snacks_selected, snackbox_price, snackboximage_url FROM snackboxes";
-$result = $conn->query($sql);
+// Handle subscription cancellation
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_subscription'])) {
+    $orderId = $_POST['order_id'];
+    $updateQuery = "UPDATE Orders SET payment_type = 'Subscription;cancel' WHERE order_id = ? AND user_id = ?";
+    $stmt = $conn->prepare($updateQuery);
+    $stmt->bind_param("ii", $orderId, $userId);
+    $stmt->execute();
+}
+
+// Fetch subscription orders for the logged-in user
+$query = "SELECT order_id, product_id, snackbox_size, product_price, product_quantity, payment_type, order_date 
+          FROM Orders 
+          WHERE user_id = ? AND payment_type LIKE 'Subscription%'";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $userId);
+$stmt->execute();
+$result = $stmt->get_result();
+
+$subscriptionOrders = [];
+while ($row = $result->fetch_assoc()) {
+    $subscriptionOrders[] = $row;
+}
+
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Home</title>
+    <title>My Subscriptions</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #F9FAFB;
+            min-height: 100vh;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col">
-
+<body class="bg-gray-100 flex flex-col min-h-screen">
     <!-- Navigation Bar -->
     <nav class="bg-white py-4 z-10">
         <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
@@ -81,59 +102,61 @@ $result = $conn->query($sql);
         </div>
     </div>
 
-    <main class="flex-grow">
-        <!-- Hero Section -->
-        <section class="max-w-7xl mx-auto px-4 py-4 grid grid-cols-2 gap-8 items-center">
-    <div>
-        <h1 class="text-4xl font-bold mb-4">
-            A World of<br>
-            Flavors at <span class="text-[#DC143C]">Your Doorstep!</span>
-        </h1>
-        <p class="hero-text-color mb-8">
-            Discover global flavors with our curated snack boxes. From familiar treats to rare rarities, TasteBites has it all. Explore tastes from across the globe – all perfectly packaged and delivered to your door!
-        </p>
-        <a href="#slide"><button class="bg-[#DC143C] text-white px-8 py-3 rounded-full">
-            Order Now
-        </button></a>
-    </div>
-    <div class="scale-150 transform origin-center"> <!-- Added scaling -->
-        <img src="index-hero.png" alt="Snack Box Collection" class="w-full">
-    </div>
-</section>
+    <main class="flex-grow py-8">
+        <div class="max-w-[1200px] mx-auto px-6">
+            <!-- Header -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-semibold text-gray-800">My Subscriptions</h2>
+                <p class="text-sm text-gray-500">Manage your active subscription orders below.</p>
+            </div>
 
-        <!-- Customized Snack Boxes -->
-        <section id="slide" class="max-w-7xl mx-auto px-4 py-16">
-            <div class="text-center mb-12">
-                <h2 class="text-[#DC143C] text-2xl font-bold">Customized Snack Boxes</h2>
-                <h3 class="text-3xl font-bold mt-2">Find Your Perfect Box</h3>
-            </div>
-            
-            <div id="product-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <?php if ($result->num_rows > 0): ?>
-                    <?php while($row = $result->fetch_assoc()): ?>
-                        <div class="bg-white shadow-md rounded-lg overflow-hidden">
-                            <a href="snackdescription.php?id=<?php echo $row['id']; ?>">
-                                <img 
-                                    src="<?php echo htmlspecialchars($row['snackboximage_url']); ?>" 
-                                    alt="<?php echo htmlspecialchars($row['snackbox_name']); ?>"
-                                    class="w-full h-48 object-cover"
-                                >
-                                <div class="p-4">
-                                    <h3 class="text-xl font-bold"><?php echo htmlspecialchars($row['snackbox_name']); ?></h3>
-                                    <p>Size: <?php echo htmlspecialchars($row['snackbox_size']); ?></p>
-                                    <p class="text-lg font-bold text-[#DC143C]">$<?php echo htmlspecialchars(number_format($row['snackbox_price'], 2)); ?></p>
-                                </div>
-                            </a>
+            <!-- Subscription Orders List -->
+            <?php if (!empty($subscriptionOrders)) : ?>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <?php foreach ($subscriptionOrders as $order) : 
+                        // Split payment_type to get the subscription status
+                        list($paymentType, $subscriptionStatus) = explode(';', $order['payment_type']);
+                        
+                        // Calculate next payment renewal date
+                        $startDate = new DateTime($order['order_date']);
+                        $nextRenewalDate = $startDate->modify('+1 month')->format('F j, Y');
+                    ?>
+                        <div class="bg-white shadow-md rounded-xl p-6 border">
+                            <h3 class="text-lg font-medium text-gray-800 mb-4">Order ID: <?php echo htmlspecialchars($order['order_id']); ?></h3>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600"><strong>Snack Box Size:</strong> <?php echo htmlspecialchars($order['snackbox_size']); ?></p>
+                                <p class="text-sm text-gray-600"><strong>Quantity:</strong> <?php echo htmlspecialchars($order['product_quantity']); ?> box(es)</p>
+                                <p class="text-sm text-gray-600"><strong>Price:</strong> $<?php echo number_format($order['product_price'], 2); ?></p>
+                                <p class="text-sm text-gray-600"><strong>Payment Type:</strong> <?php echo htmlspecialchars($paymentType); ?></p>
+                                <p class="text-sm text-gray-600"><strong>Subscription Status:</strong> 
+                                    <span class="<?php echo ($subscriptionStatus === 'active') ? 'text-green-500' : 'text-red-500'; ?>">
+                                        <?php echo ucfirst($subscriptionStatus); ?>
+                                    </span>
+                                </p>
+                                <?php if ($subscriptionStatus === 'active') : ?>
+                                    <p class="text-sm text-gray-600"><strong>Next Renewal Date:</strong> <?php echo htmlspecialchars($nextRenewalDate); ?></p>
+                                <?php endif; ?>
+                            </div>
+                            <!-- Cancel Subscription Button -->
+                            <?php if ($subscriptionStatus === 'active') : ?>
+                                <form method="POST" class="mt-4">
+                                    <input type="hidden" name="order_id" value="<?php echo htmlspecialchars($order['order_id']); ?>">
+                                    <button type="submit" name="cancel_subscription" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
+                                        Cancel Subscription
+                                    </button>
+                                </form>
+                            <?php endif; ?>
                         </div>
-                    <?php endwhile; ?>
-                <?php else: ?>
-                    <p>No snack boxes available at the moment.</p>
-                <?php endif; ?>
-            </div>
-        </section>
+                    <?php endforeach; ?>
+                </div>
+            <?php else : ?>
+                <div class="bg-orange-50 text-orange-900 p-6 rounded-xl text-center">
+                    <p class="text-sm">You currently have no active subscriptions.</p>
+                </div>
+            <?php endif; ?>
+        </div>
     </main>
 
-    <!-- Footer -->
     <footer class="bg-[#FFDAC1] py-12 w-full">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-2 gap-8">
@@ -167,8 +190,6 @@ $result = $conn->query($sql);
             </div>
         </div>
     </footer>
-    <script src="cart.js"></script>
-
+    <script src="cart.js" defer></script>
 </body>
 </html>
-<?php $conn->close(); ?>

@@ -59,14 +59,6 @@
                             Log in
                         </button>
                     </div>
-
-                    <!-- Sign Up Link -->
-                    <div class="text-center text-sm">
-                        <span class="text-gray-500">Don't have an account?</span>
-                        <a href="signup.php" class="ml-1 font-medium text-indigo-600 hover:text-indigo-500">
-                            Sign up
-                        </a>
-                    </div>
                 </form>
 
                 <!-- Message Display -->

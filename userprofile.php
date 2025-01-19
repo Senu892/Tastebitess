@@ -124,14 +124,40 @@ try {
                 <?php else: ?>
                     <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
                 <?php endif; ?>
-                <button class="text-gray-600">
+                <button id="cartButton" class="text-gray-600 relative" onclick="toggleCart()">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hidden">0</span>
                 </button>
             </div>
         </div>
     </nav>
+
+    <div id="cartModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="fixed right-0 top-0 h-full w-96 bg-white shadow-lg">
+            <div class="p-4 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Shopping Cart</h2>
+                    <button onclick="toggleCart()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="cartItems" class="flex-grow overflow-y-auto">
+                    <!-- Cart items will be inserted here -->
+                </div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between mb-4">
+                        <span class="font-bold">Total:</span>
+                        <span id="cartTotal" class="font-bold">$0.00</span>
+                    </div>
+                    <button onclick="proceedToCheckout(event)" class="w-full bg-green-600 text-white py-2 rounded-md mb-2">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Edit Profile Modal -->
     <div x-show="editModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -287,9 +313,8 @@ try {
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-[#FFDAC1] py-12 mt-auto">
-        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+    <footer class="bg-[#FFDAC1] py-12 w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-2 gap-8">
                 <div>
                     <img src="logo.png" alt="TasteBites" class="h-11 mb-4">
@@ -299,10 +324,10 @@ try {
                     <div>
                         <h3 class="font-bold text-lg mb-4">Navigate</h3>
                         <ul class="space-y-2">
-                            <li><a href="#" class="hover:text-gray-600">Home</a></li>
-                            <li><a href="#" class="hover:text-gray-600">Snacks</a></li>
-                            <li><a href="#" class="hover:text-gray-600">Subscription</a></li>
-                            <li><a href="#" class="hover:text-gray-600">About Us</a></li>
+                            <li><a href="./index.php" class="hover:text-gray-600">Home</a></li>
+                            <li><a href="./customize.php" class="hover:text-gray-600">Customize</a></li>
+                            <li><a href="./subscription.php" class="hover:text-gray-600">Subscription</a></li>
+                            <li><a href="./aboutuspage.php" class="hover:text-gray-600">About Us</a></li>
                         </ul>
                     </div>
                     <div>
@@ -316,10 +341,12 @@ try {
                     </div>
                 </div>
             </div>
-            <div class="mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
+            <div class="text-center mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
                 © 2024 Taste Bites. All Rights Reserved.
             </div>
         </div>
     </footer>
+    <script src="cart.js" defer></script>
+
 </body>
 </html>

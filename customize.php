@@ -1,12 +1,18 @@
 <?php
-include_once './dbconnection.php';
-
 session_start();
-if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
-    header('Location: login.php');
-    exit();
+
+// Initialize session variables with default values
+$username = '';
+$isLoggedIn = false;
+
+// Check if user is logged in and set variables
+if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
+    $isLoggedIn = true;
+    $username = isset($_SESSION['username']) ? htmlspecialchars($_SESSION['username']) : '';
 }
 
+// Include the database connection file
+include 'dbconnection.php';
 // Define box size limits
 $boxSizeLimits = [
     'large' => 9,
@@ -74,8 +80,7 @@ $userId = $_SESSION['user_id'] ?? null;
     </style>
 </head>
 <body class="bg-gray-100">
-    <!-- Navigation Bar -->
-    <nav class="bg-white py-4">
+<nav class="bg-white py-4 z-10">
         <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
             <img src="logo.png" alt="TasteBites" class="h-8">
             <div class="flex space-x-8 items-center">
@@ -91,15 +96,40 @@ $userId = $_SESSION['user_id'] ?? null;
                 <?php else: ?>
                     <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
                 <?php endif; ?>
-                <button class="text-gray-600">
+                <button id="cartButton" class="text-gray-600 relative" onclick="toggleCart()">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hidden">0</span>
                 </button>
             </div>
         </div>
     </nav>
-    
+
+    <div id="cartModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="fixed right-0 top-0 h-full w-96 bg-white shadow-lg">
+            <div class="p-4 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Shopping Cart</h2>
+                    <button onclick="toggleCart()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="cartItems" class="flex-grow overflow-y-auto">
+                    <!-- Cart items will be inserted here -->
+                </div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between mb-4">
+                        <span class="font-bold">Total:</span>
+                        <span id="cartTotal" class="font-bold">$0.00</span>
+                    </div>
+                    <button onclick="proceedToCheckout(event)" class="w-full bg-green-600 text-white py-2 rounded-md mb-2">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+    </div>    
      <!-- Main Content -->
      <main class="max-w-7xl mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-[#DC143C] mb-8">Let's Customize</h1>
@@ -200,7 +230,6 @@ $userId = $_SESSION['user_id'] ?? null;
         </div>
     </main>
     
-    <!-- Footer -->
     <footer class="bg-[#FFDAC1] py-12 w-full">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid md:grid-cols-2 gap-8">
@@ -212,10 +241,10 @@ $userId = $_SESSION['user_id'] ?? null;
                     <div>
                         <h3 class="font-bold text-lg mb-4">Navigate</h3>
                         <ul class="space-y-2">
-                            <li><a href="#" class="hover:text-gray-600">Home</a></li>
-                            <li><a href="#" class="hover:text-gray-600">Snacks</a></li>
-                            <li><a href="#" class="hover:text-gray-600">Subscription</a></li>
-                            <li><a href="#" class="hover:text-gray-600">About Us</a></li>
+                            <li><a href="./index.php" class="hover:text-gray-600">Home</a></li>
+                            <li><a href="./customize.php" class="hover:text-gray-600">Customize</a></li>
+                            <li><a href="./subscription.php" class="hover:text-gray-600">Subscription</a></li>
+                            <li><a href="./aboutuspage.php" class="hover:text-gray-600">About Us</a></li>
                         </ul>
                     </div>
                     <div>
@@ -229,7 +258,7 @@ $userId = $_SESSION['user_id'] ?? null;
                     </div>
                 </div>
             </div>
-            <div class="mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
+            <div class="text-center mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
                 © 2024 Taste Bites. All Rights Reserved.
             </div>
         </div>
@@ -411,9 +440,54 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    document.querySelector('button[type="button"]').onclick = function() {
+    // Get the selected snacks from our existing Set
+    const selectedSnacksArray = Array.from(selectedSnacks);
+    
+    // Get current box size
+    const boxSize = document.getElementById('box-size').value;
+    
+    // Get quantity
+    const quantity = parseInt(document.getElementById('quantity-input').value) || 1;
+    
+    // Get order type
+    const orderType = document.querySelector('input[name="order_type"]:checked').value;
+    
+    // Get total price
+    const totalPrice = parseFloat(document.getElementById('total-price').textContent);
+    
+    // Create item object for cart
+    const item = {
+        id: 'custom-' + Date.now(), // Unique ID for custom box
+        type: 'custom',
+        name: `Custom ${boxSize.charAt(0).toUpperCase() + boxSize.slice(1)} Box`,
+        quantity: quantity,
+        price: totalPrice,
+        orderType: orderType,
+        boxSize: boxSize,
+        products: selectedSnacksArray
+    };
+
+    // Only add to cart if there are selected snacks
+    if (selectedSnacksArray.length > 0) {
+        // Check if we have enough snacks for the selected box size
+        const maxItems = boxSizeLimits[boxSize];
+        if (selectedSnacksArray.length <= maxItems) {
+            addToCart(item);
+        } else {
+            alert(`You can only select up to ${maxItems} snacks for a ${boxSize} box!`);
+        }
+    } else {
+        alert('Please select at least one snack before adding to cart!');
+    }
+};
+
     // Initialize the page
     updateMaxItems();
 });
+
+ // Move selectedSnacks to global scope
 </script>
+<script src="cart.js" defer></script>
 </body>
 </html>

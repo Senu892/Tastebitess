@@ -2,6 +2,11 @@
 session_start();
 include_once '../dbconnection.php';
 
+if (!isset($_SESSION['admin_logged_in']) || !$_SESSION['admin_logged_in']) {
+    header('Location: admin-login.php');
+    exit();
+}
+
 // Fetch all products
 $products_sql = "SELECT * FROM products";
 $products_result = $conn->query($products_sql);

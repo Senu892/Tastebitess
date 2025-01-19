@@ -2,6 +2,36 @@
 session_start();
 include_once './dbconnection.php';
 
+// Check if we have the necessary data
+if (!isset($_POST['snackbox_id']) && !isset($_POST['selected_products'])) {
+    header('Location: index.php');
+    exit();
+}
+
+// Initialize variables
+$snackbox_name = "Custom Snack Box"; // Default name
+$order_type = 'Customized'; // Default type
+
+// For predefined snackbox orders
+if (isset($_POST['snackbox_id'])) {
+    $snackbox_id = $_POST['snackbox_id'];
+    $box_size = $_POST['box_size'];
+    $quantity = $_POST['quantity'];
+    $total_price = $_POST['total_price'];
+    $order_type = 'Predefined'; // Set order type for predefined boxes
+
+    // Fetch snackbox name
+    $stmt = $conn->prepare("SELECT snackbox_name FROM snackboxes WHERE id = ?");
+    $stmt->bind_param("i", $snackbox_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($row = $result->fetch_assoc()) {
+        $snackbox_name = $row['snackbox_name'];
+    }
+    $stmt->close();
+}
+
+
 // Check if user is logged in
 if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
     header('Location: login.php');
@@ -13,6 +43,7 @@ if (!isset($_POST['selected_products']) || !isset($_POST['total_price'])) {
     header('Location: customize.php');
     exit();
 }
+
 
 // Get user details
 $userId = $_SESSION['user_id'];
@@ -33,14 +64,34 @@ if ($userResult->num_rows > 0) {
 }
 
 // Get selected products details
-$selectedProducts = json_decode($_POST['selected_products'], true);
+if (isset($_POST['selected_products'])) {
+    // Decode the JSON string of product IDs
+    $selectedProducts = json_decode($_POST['selected_products'], true);
+    
+    // Ensure we have an array
+    if (!is_array($selectedProducts)) {
+        $selectedProducts = explode(',', $_POST['selected_products']);
+    }
+    
+    // Filter out any empty or invalid values
+    $selectedProducts = array_filter($selectedProducts, function($id) {
+        return !empty($id) && is_numeric($id);
+    });
+    
+    // Create the string for SQL
+    $productIdsString = implode(',', $selectedProducts);
+    
+    // Debug logging
+    error_log("Selected Products: " . print_r($selectedProducts, true));
+    error_log("Product IDs String: " . $productIdsString);
+} else {
+    header('Location: customize.php');
+    exit();
+}
 $boxSize = $_POST['box_size'];
 $quantity = $_POST['quantity'];
 $orderType = $_POST['order_type'];
 $totalPrice = $_POST['total_price'];
-
-// Convert the products array to a comma-separated string
-$productIdsString = implode(',', $selectedProducts);
 
 // Calculate final prices
 $subtotal = floatval($totalPrice);
@@ -53,14 +104,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
     $customerPhone = $_POST['customer_phone'] ?? $userData['phone'];
     $customerAddress = $_POST['customer_address'] ?? $userData['address'];
     $orderStatus = 'pending';
-    $orderType = 'Customized';
     $paymentType = ($orderType === 'subscription') ? 'Subscription' : 'One-Time';
     
-    // Create variables for bind_param
+    // Get the formatted products array from the POST data
+    $formattedProducts = isset($_POST['formatted_products']) ? 
+        json_decode($_POST['formatted_products'], true) : [];    
+    
+    // If formatted_products is empty, try to construct it from cart_data
+    if (empty($formattedProducts) && isset($_POST['cart_data'])) {
+        $cartData = json_decode($_POST['cart_data'], true);
+        $formattedProducts = array_map(function($item) {
+            $productIds = isset($item['productIds']) ? $item['productIds'] : 
+                         (isset($item['id']) ? [$item['id']] : []);
+            return [
+                'ids' => $productIds,
+                'type' => $item['type'] === 'custom' ? 'Customized' : 'Predefined'
+            ];
+        }, $cartData);
+    }
+
+    echo '<div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;">';
+    echo '<h3>Order Summary:</h3>';
+    if (!empty($formattedProducts)) {
+        echo '<ul>';
+        foreach ($formattedProducts as $product) {
+            echo '<li>Product IDs: ' . implode(', ', $product['ids']) . ' - Type: ' . $product['type'] . '</li>';
+        }
+        echo '</ul>';
+    } else {
+        echo '<p>No products found in the cart data.</p>';
+    }
+    echo '</div>';
+    
+    // Convert to JSON string for storage
+    $productIdJson = json_encode($formattedProducts);
+    
+    // Create the order in the database
     $stmt = $conn->prepare("INSERT INTO Orders (
         user_id, 
-        order_type, 
+        order_type,
         product_id,
+        snackbox_id,
         snackbox_size, 
         product_price, 
         product_quantity, 
@@ -69,14 +153,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
         customer_phone,
         customer_address,
         order_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     
-    // Bind parameters using variables
+    // Set snackbox_id to NULL for customized orders
+    $snackbox_id_val = isset($snackbox_id) ? $snackbox_id : null;
+    
     $stmt->bind_param(
-        "isssdisssss",
+        "issisdisssss",
         $userId,
-        $orderType,
-        $productIdsString,
+        $order_type,
+        $productIdJson,
+        $snackbox_id_val,
         $boxSize,
         $finalTotal,
         $quantity,
@@ -91,7 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
         // Order saved successfully
         $orderId = $conn->insert_id;
         $_SESSION['order_success'] = true;
+        
+        // Clear the cart from localStorage after successful order
         echo "<script>
+            localStorage.removeItem('cart');
             alert('Order placed successfully!');
             window.location.href = 'index.php';
         </script>";
@@ -149,9 +239,56 @@ if (!empty($selectedProducts)) {
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
     <!-- Navigation Bar remains the same -->
-    <nav class="bg-white py-4">
-        <!-- Navigation content remains the same -->
+    <nav class="bg-white py-4 z-10">
+        <div class="max-w-7lg mx-auto px-4 flex justify-between items-center">
+            <img src="logo.png" alt="TasteBites" class="h-8">
+            <div class="flex space-x-8 items-center">
+                <a href="index.php" class="text-black">Home</a>
+                <a href="customize.php" class="text-black">Customize</a>
+                <a href="subscription.php" class="text-black">Subscription</a>
+                <a href="aboutuspage.php" class="text-black">About Us</a>
+                <?php if (isset($_SESSION['logged_in']) && $_SESSION['logged_in']): ?>
+                    <a href="userprofile.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">
+                        <?php echo htmlspecialchars($_SESSION['username']); ?>
+                    </a>
+                    <a href="logout.php" class="text-black">Logout</a>
+                <?php else: ?>
+                    <a href="login.php" class="bg-[#FFDAC1] px-6 py-1 rounded-full">Login</a>
+                <?php endif; ?>
+                <button id="cartButton" class="text-gray-600 relative" onclick="toggleCart()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    <span id="cartCount" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center hidden">0</span>
+                </button>
+            </div>
+        </div>
     </nav>
+
+    <div id="cartModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="fixed right-0 top-0 h-full w-96 bg-white shadow-lg">
+            <div class="p-4 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold">Shopping Cart</h2>
+                    <button onclick="toggleCart()" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="cartItems" class="flex-grow overflow-y-auto">
+                    <!-- Cart items will be inserted here -->
+                </div>
+                <div class="border-t pt-4">
+                    <div class="flex justify-between mb-4">
+                        <span class="font-bold">Total:</span>
+                        <span id="cartTotal" class="font-bold">$0.00</span>
+                    </div>
+                    <button onclick="proceedToCheckout(event)" class="w-full bg-green-600 text-white py-2 rounded-md mb-2">Proceed to Checkout</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <main class="flex-grow py-8">
         <div class="max-w-[1200px] mx-auto px-6">
@@ -235,24 +372,51 @@ if (!empty($selectedProducts)) {
                 <!-- Right Column -->
                 <div class="space-y-6">
                     <!-- Order Summary Box -->
+                    <!-- Replace the existing Order Summary section with this code -->
                     <div class="bg-orange-50 rounded-2xl p-6">
                         <h3 class="text-orange-900 text-lg font-medium mb-6">Order Summary</h3>
-                        
-                        <div class="space-y-4 mb-6">
-                            <div class="flex items-center gap-4">
-                                <div class="w-16 h-16 bg-white rounded-xl p-2">
-                                    <img src="snack.png" alt="Japanese Snacks Box" class="w-full h-full object-contain">
+
+                        <?php
+                            // Check if cart_data exists in POST
+                            if (isset($_POST['cart_data']) && !empty($_POST['cart_data'])) {
+                                $cart_data = json_decode($_POST['cart_data'], true);
+                                if ($cart_data) { ?>
+                                    <div class="space-y-4 mb-6">
+                                        <?php foreach ($cart_data as $item): ?>
+                                            <div class="flex items-center gap-4">
+                                                <div class="w-16 h-16 bg-white rounded-xl p-2">
+                                                    <img src="snack.png" alt="Snack Box" class="w-full h-full object-contain">
+                                                </div>
+                                                <div class="flex-grow">
+                                                    <p class="text-gray-900 font-medium"><?php echo htmlspecialchars($item['name']); ?></p>
+                                                    <p class="text-gray-500 text-sm">
+                                                        <?php echo htmlspecialchars($item['type']); ?> - 
+                                                        <?php echo htmlspecialchars($item['quantity']); ?> Box(es)
+                                                    </p>
+                                                    <p class="text-gray-500 text-sm">
+                                                        $<?php echo number_format($item['price'] * $item['quantity'], 2); ?>
+                                                        <?php echo ($item['orderType'] === 'subscription') ? '(Monthly Subscription)' : ''; ?>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php } 
+                            } else { ?>
+                                <div class="flex items-center gap-4">
+                                    <div class="w-16 h-16 bg-white rounded-xl p-2">
+                                        <img src="snack.png" alt="Japanese Snacks Box" class="w-full h-full object-contain">
+                                    </div>
+                                    <div class="flex-grow">
+                                        <p class="text-gray-900 font-medium">Custom Snack Box</p>
+                                        <p class="text-gray-500 text-sm"><?php echo ucfirst($boxSize); ?> Size - <?php echo $quantity; ?> Box(es)</p>
+                                        <p class="text-gray-500 text-sm">
+                                            $<?php echo number_format($subtotal, 2); ?> 
+                                            <?php echo ($orderType === 'subscription') ? '(Monthly Subscription)' : ''; ?>
+                                        </p>
+                                    </div>
                                 </div>
-                                <div class="flex-grow">
-                                    <p class="text-gray-900 font-medium">Custom Snack Box</p>
-                                    <p class="text-gray-500 text-sm"><?php echo ucfirst($boxSize); ?> Size - <?php echo $quantity; ?> Box(es)</p>
-                                    <p class="text-gray-500 text-sm">
-                                        $<?php echo number_format($subtotal, 2); ?> 
-                                        <?php echo ($orderType === 'subscription') ? '(Monthly Subscription)' : ''; ?>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                            <?php } ?>
 
                         <div class="space-y-3 border-t border-orange-200 pt-4">
                             <div class="flex justify-between items-center text-gray-600">
@@ -278,9 +442,39 @@ if (!empty($selectedProducts)) {
         </div>
     </main>
 
-    <!-- Footer remains the same -->
-    <footer class="bg-[#FFDAC1] py-12 mt-auto">
-        <!-- Footer content remains the same -->
+   
+    <footer class="bg-[#FFDAC1] py-12 w-full">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <img src="logo.png" alt="TasteBites" class="h-11 mb-4">
+                    <p class="text-gray-800">Sweet Every Bite</p>
+                </div>
+                <div class="grid grid-cols-2 gap-8">
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Navigate</h3>
+                        <ul class="space-y-2">
+                            <li><a href="./index.php" class="hover:text-gray-600">Home</a></li>
+                            <li><a href="./customize.php" class="hover:text-gray-600">Customize</a></li>
+                            <li><a href="./subscription.php" class="hover:text-gray-600">Subscription</a></li>
+                            <li><a href="./aboutuspage.php" class="hover:text-gray-600">About Us</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg mb-4">Contact US</h3>
+                        <ul class="space-y-2 text-gray-800">
+                            <li>Location: 123 Flavor Street,</li>
+                            <li>Colombo, Sri Lanka</li>
+                            <li>Call Us: +94777890</li>
+                            <li>Email: hello@tastebites.com</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="text-center mt-12 pt-8 border-t border-orange-200 text-sm text-gray-800">
+                © 2024 Taste Bites. All Rights Reserved.
+            </div>
+        </div>
     </footer>
 
     <script>
@@ -399,6 +593,7 @@ if (!empty($selectedProducts)) {
         });
     });
 </script>
+<scrip src="cart.js" defer></script>
 
 </body>
 </html>
