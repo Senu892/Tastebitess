@@ -415,7 +415,7 @@ if (!isset($quantity) && isset($_POST['quantity'])) {
                                         <?php foreach ($cart_data as $item): ?>
                                             <div class="flex items-center gap-4">
                                                 <div class="w-16 h-16 bg-white rounded-xl p-2">
-                                                    <img src="snack.png" alt="Snack Box" class="w-full h-full object-contain">
+                                                <img src="<?php echo !empty($snackboximage_url) ? ucfirst($snackboximage_url) : "snack.png"; ?>" alt="Japanese Snacks Box" class="w-full h-full object-contain">
                                                 </div>
                                                 <div class="flex-grow">
                                                     <p class="text-gray-900 font-medium"><?php echo htmlspecialchars($item['name']); ?></p>
