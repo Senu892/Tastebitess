@@ -16,8 +16,14 @@
             </div>
             <form id="signupForm" class="mt-8 space-y-6">
                 <div class="space-y-4">
-                    
-                    
+                    <div>
+                    <input 
+                    type="hidden" 
+                    id="user_type" 
+                    name="user_type" 
+                    value="customer" 
+                    />
+                    </div>
                     <div>
                         <label for="full_name" class="block text-sm font-medium text-gray-700">Full Name</label>
                         <input id="full_name" name="full_name" type="text" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">

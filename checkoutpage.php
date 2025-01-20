@@ -2,25 +2,42 @@
 session_start();
 include_once './dbconnection.php';
 
-// Check if we have the necessary data
-if (!isset($_POST['snackbox_id']) && !isset($_POST['selected_products'])) {
-    header('Location: index.php');
+// Check if user is logged in
+if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
+    header('Location: login.php');
     exit();
 }
 
 // Initialize variables
-$snackbox_name = "Custom Snack Box"; // Default name
-$order_type = 'Customized'; // Default type
+$snackbox_name = "Custom Snack Box";
+$error = null;
+$boxSize = '';
+$quantity = 1;
+$selectedProducts = [];
+$productDetails = [];
+
+// Initialize and standardize order type
+$orderType = isset($_POST['order_type']) ? $_POST['order_type'] : 
+              (isset($_SESSION['cart_data']['order_type']) ? $_SESSION['cart_data']['order_type'] : 'One-Time');
+
+// Standardize order type format
+if (strtolower($orderType) === 'subscription' || strtolower($orderType) === 'subscribe') {
+    $orderType = 'Subscription';
+} else {
+    $orderType = 'One-Time';
+}
+
+// Initialize box size from POST data
+$boxSize = isset($_POST['box_size']) ? $_POST['box_size'] : 'Regular';
 
 // For predefined snackbox orders
 if (isset($_POST['snackbox_id'])) {
     $snackbox_id = $_POST['snackbox_id'];
-    $box_size = $_POST['box_size'];
+    $boxSize = $_POST['box_size'];
     $quantity = $_POST['quantity'];
     $total_price = $_POST['total_price'];
-    $order_type = 'Predefined'; // Set order type for predefined boxes
+    
 
-    // Fetch snackbox name
     $stmt = $conn->prepare("SELECT snackbox_name FROM snackboxes WHERE id = ?");
     $stmt->bind_param("i", $snackbox_id);
     $stmt->execute();
@@ -30,20 +47,6 @@ if (isset($_POST['snackbox_id'])) {
     }
     $stmt->close();
 }
-
-
-// Check if user is logged in
-if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
-    header('Location: login.php');
-    exit();
-}
-
-// Check if form data is received
-if (!isset($_POST['selected_products']) || !isset($_POST['total_price'])) {
-    header('Location: customize.php');
-    exit();
-}
-
 
 // Get user details
 $userId = $_SESSION['user_id'];
@@ -63,40 +66,31 @@ if ($userResult->num_rows > 0) {
     ];
 }
 
-// Get selected products details
+// Get selected products and their details
 if (isset($_POST['selected_products'])) {
-    // Decode the JSON string of product IDs
     $selectedProducts = json_decode($_POST['selected_products'], true);
-    
-    // Ensure we have an array
     if (!is_array($selectedProducts)) {
         $selectedProducts = explode(',', $_POST['selected_products']);
     }
     
-    // Filter out any empty or invalid values
+    // Filter out invalid values
     $selectedProducts = array_filter($selectedProducts, function($id) {
         return !empty($id) && is_numeric($id);
     });
     
-    // Create the string for SQL
-    $productIdsString = implode(',', $selectedProducts);
-    
-    // Debug logging
-    error_log("Selected Products: " . print_r($selectedProducts, true));
-    error_log("Product IDs String: " . $productIdsString);
-} else {
-    header('Location: customize.php');
-    exit();
+    // Get product details if there are valid products
+    if (!empty($selectedProducts)) {
+        $placeholders = str_repeat('?,', count($selectedProducts) - 1) . '?';
+        $productQuery = "SELECT * FROM products WHERE id IN ($placeholders)";
+        $stmt = $conn->prepare($productQuery);
+        $stmt->bind_param(str_repeat('i', count($selectedProducts)), ...$selectedProducts);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $productDetails[] = $row;
+        }
+    }
 }
-$boxSize = $_POST['box_size'];
-$quantity = $_POST['quantity'];
-$orderType = $_POST['order_type'];
-$totalPrice = $_POST['total_price'];
-
-// Calculate final prices
-$subtotal = floatval($totalPrice);
-$shipping = 3.00;
-$finalTotal = $subtotal + $shipping;
 
 // Process the order when form is submitted
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
@@ -104,82 +98,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
     $customerPhone = $_POST['customer_phone'] ?? $userData['phone'];
     $customerAddress = $_POST['customer_address'] ?? $userData['address'];
     $orderStatus = 'pending';
-    $paymentType = ($orderType === 'subscription') ? 'Subscription' : 'One-Time';
     
-    // Get the formatted products array from the POST data
-    $formattedProducts = isset($_POST['formatted_products']) ? 
-        json_decode($_POST['formatted_products'], true) : [];    
+    // Standardize payment type
+    $paymentType = isset($_POST['order_type']) ? 
+                   (strtolower($_POST['order_type']) === 'subscription' ? 'Subscription' : 'One-Time') : 
+                   'One-Time';
     
-    // If formatted_products is empty, try to construct it from cart_data
-    if (empty($formattedProducts) && isset($_POST['cart_data'])) {
+    // Get cart data
+    $cartData = [];
+    if (isset($_POST['cart_data']) && !empty($_POST['cart_data'])) {
         $cartData = json_decode($_POST['cart_data'], true);
-        $formattedProducts = array_map(function($item) {
-            $productIds = isset($item['productIds']) ? $item['productIds'] : 
-                         (isset($item['id']) ? [$item['id']] : []);
-            return [
-                'ids' => $productIds,
-                'type' => $item['type'] === 'custom' ? 'Customized' : 'Predefined'
-            ];
-        }, $cartData);
-    }
-
-    echo '<div style="border: 1px solid #ccc; padding: 10px; margin-bottom: 20px;">';
-    echo '<h3>Order Summary:</h3>';
-    if (!empty($formattedProducts)) {
-        echo '<ul>';
-        foreach ($formattedProducts as $product) {
-            echo '<li>Product IDs: ' . implode(', ', $product['ids']) . ' - Type: ' . $product['type'] . '</li>';
+        error_log("Cart Data: " . print_r($cartData, true)); // Debug log
+    } elseif (isset($_POST['selected_products'])) {
+        // Handle single item orders
+        $selectedProducts = json_decode($_POST['selected_products'], true);
+        if (!is_array($selectedProducts)) {
+            $selectedProducts = explode(',', $_POST['selected_products']);
         }
-        echo '</ul>';
-    } else {
-        echo '<p>No products found in the cart data.</p>';
-    }
-    echo '</div>';
-    
-    // Convert to JSON string for storage
-    $productIdJson = json_encode($formattedProducts);
-    
-    // Create the order in the database
-    $stmt = $conn->prepare("INSERT INTO Orders (
-        user_id, 
-        order_type,
-        product_id,
-        snackbox_id,
-        snackbox_size, 
-        product_price, 
-        product_quantity, 
-        payment_type,
-        customer_name,
-        customer_phone,
-        customer_address,
-        order_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
-    // Set snackbox_id to NULL for customized orders
-    $snackbox_id_val = isset($snackbox_id) ? $snackbox_id : null;
-    
-    $stmt->bind_param(
-        "issisdisssss",
-        $userId,
-        $order_type,
-        $productIdJson,
-        $snackbox_id_val,
-        $boxSize,
-        $finalTotal,
-        $quantity,
-        $paymentType,
-        $customerName,
-        $customerPhone,
-        $customerAddress,
-        $orderStatus
-    );
-
-    if ($stmt->execute()) {
-        // Order saved successfully
-        $orderId = $conn->insert_id;
-        $_SESSION['order_success'] = true;
         
-        // Clear the cart from localStorage after successful order
+        // Filter out invalid product IDs
+        $selectedProducts = array_filter($selectedProducts, function($id) {
+            return !empty($id) && is_numeric($id);
+        });
+
+        $cartData = [[
+            'type' => isset($_POST['snackbox_id']) ? 'Predefined' : 'Customized',
+            'productIds' => $selectedProducts,
+            'size' => $_POST['box_size'] ?? '',
+            'quantity' => $_POST['quantity'] ?? 1,
+            'price' => $_POST['total_price'] ?? 0,
+            'snackboxId' => $_POST['snackbox_id'] ?? null,
+            'order_type' => $paymentType
+        ]];
+    }
+
+    // Initialize success counter
+    $successfulOrders = 0;
+    
+    // Process each item in the cart
+    foreach ($cartData as $item) {
+        // Ensure productIds is an array and contains only valid IDs
+        $productIds = isset($item['productIds']) ? (array)$item['productIds'] : [];
+        $productIds = array_filter($productIds, function($id) {
+            return !empty($id) && is_numeric($id);
+        });
+        
+        // Skip if no valid product IDs
+        if (empty($productIds)) {
+            continue;
+        }
+
+        // Convert product IDs to a comma-separated string for storage
+        $productIdString = implode(',', $productIds);
+        
+        // Determine the correct order type
+        $itemType = isset($item['type']) ? $item['type'] : 
+                   (isset($item['snackboxId']) && !empty($item['snackboxId']) ? 'Predefined' : 'Customized');
+        
+        // Get the box size, ensuring it's not empty
+        $itemSize = !empty($item['size']) ? $item['size'] : 
+                   (!empty($_POST['box_size']) ? $_POST['box_size'] : 'Regular');
+        
+        $itemQuantity = $item['quantity'] ?? 1;
+        $itemPrice = $item['price'] ?? 0;
+        $snackboxId = $item['snackboxId'] ?? null;
+        
+        // Debug logging
+        error_log("Processing order - Type: " . $itemType . ", Size: " . $itemSize . ", Product IDs: " . $productIdString);
+        
+        // Create the order
+        $stmt = $conn->prepare("INSERT INTO Orders (
+            user_id, 
+            order_type,
+            product_id,
+            snackbox_id,
+            snackbox_size, 
+            product_price, 
+            product_quantity, 
+            payment_type,
+            customer_name,
+            customer_phone,
+            customer_address,
+            order_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        
+        $stmt->bind_param(
+            "issisdisssss",
+            $userId,
+            $itemType,
+            $productIdString,
+            $snackboxId,
+            $itemSize,
+            $itemPrice,
+            $itemQuantity,
+            $paymentType,  // Use standardized payment type
+            $customerName,
+            $customerPhone,
+            $customerAddress,
+            $orderStatus
+        );
+
+        if ($stmt->execute()) {
+            $successfulOrders++;
+            error_log("Order created successfully - Type: $itemType, Size: $itemSize");
+        } else {
+            error_log("Error creating order: " . $stmt->error);
+        }
+    }
+    
+    // Check if all orders were successful
+    if ($successfulOrders === count($cartData)) {
+        $_SESSION['order_success'] = true;
         echo "<script>
             localStorage.removeItem('cart');
             alert('Order placed successfully!');
@@ -187,23 +216,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
         </script>";
         exit();
     } else {
-        // Handle error
         $error = "Error processing your order. Please try again.";
     }
 }
 
-// Rest of your existing code for fetching product details
-$productDetails = [];
-if (!empty($selectedProducts)) {
-    $placeholders = str_repeat('?,', count($selectedProducts) - 1) . '?';
-    $productQuery = "SELECT * FROM products WHERE id IN ($placeholders)";
-    $stmt = $conn->prepare($productQuery);
-    $stmt->bind_param(str_repeat('i', count($selectedProducts)), ...$selectedProducts);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    while ($row = $result->fetch_assoc()) {
-        $productDetails[] = $row;
-    }
+// Calculate final prices
+$subtotal = isset($_POST['total_price']) ? floatval($_POST['total_price']) : 0;
+$shipping = 3.00;
+$finalTotal = $subtotal + $shipping;
+
+// Set box size and quantity if not already set
+if (!isset($boxSize) && isset($_POST['box_size'])) {
+    $boxSize = $_POST['box_size'];
+}
+if (!isset($quantity) && isset($_POST['quantity'])) {
+    $quantity = $_POST['quantity'];
 }
 ?>
 
@@ -296,7 +323,7 @@ if (!empty($selectedProducts)) {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-rose-500 font-medium text-xl">Checkout</h2>
                 <span class="bg-orange-50 text-xs px-3 py-1 rounded-full text-orange-800">
-                    <?php echo ucfirst($orderType); ?> Order
+                    <?php echo ucfirst($order_type); ?> Order
                 </span>
             </div>
 
@@ -314,7 +341,7 @@ if (!empty($selectedProducts)) {
                     <!-- Payment Form -->
                     <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="POST" id="payment-form">
                         <input type="hidden" name="process_payment" value="1">
-                        <input type="hidden" name="order_type" value="<?php echo htmlspecialchars($orderType); ?>">
+                        <input type="hidden" name="order_type" value="<?php echo htmlspecialchars($order_type); ?>">
                         <input type="hidden" name="box_size" value="<?php echo htmlspecialchars($boxSize); ?>">
                         <input type="hidden" name="quantity" value="<?php echo htmlspecialchars($quantity); ?>">
                         <input type="hidden" name="selected_products" value='<?php echo htmlspecialchars($_POST['selected_products']); ?>'>
@@ -372,7 +399,7 @@ if (!empty($selectedProducts)) {
                 <!-- Right Column -->
                 <div class="space-y-6">
                     <!-- Order Summary Box -->
-                    <!-- Replace the existing Order Summary section with this code -->
+                   
                     <div class="bg-orange-50 rounded-2xl p-6">
                         <h3 class="text-orange-900 text-lg font-medium mb-6">Order Summary</h3>
 
@@ -395,7 +422,7 @@ if (!empty($selectedProducts)) {
                                                     </p>
                                                     <p class="text-gray-500 text-sm">
                                                         $<?php echo number_format($item['price'] * $item['quantity'], 2); ?>
-                                                        <?php echo ($item['orderType'] === 'subscription') ? '(Monthly Subscription)' : ''; ?>
+                                                        <?php echo ($item['order_type'] === 'subscription') ? '(Monthly Subscription)' : ''; ?>
                                                     </p>
                                                 </div>
                                             </div>

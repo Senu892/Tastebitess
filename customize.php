@@ -139,6 +139,10 @@ $userId = $_SESSION['user_id'] ?? null;
             <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($userId); ?>">
             <input type="hidden" name="selected_products" id="selected-products-input">
             <input type="hidden" name="total_price" id="total-price-input">
+            <input type="hidden" name="box_size" value="<?php echo htmlspecialchars($boxSize); ?>">
+            <input type="hidden" name="order_type" value="<?php echo htmlspecialchars($order_type); ?>">
+            
+
             
             <div class="bg-white rounded-lg border">
                 <div class="grid grid-cols-12 gap-8 p-6">
@@ -451,23 +455,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const quantity = parseInt(document.getElementById('quantity-input').value) || 1;
     
     // Get order type
-    const orderType = document.querySelector('input[name="order_type"]:checked').value;
+    // const orderType = document.querySelector('input[name="order_type"]:checked').value;
     
     // Get total price
     const totalPrice = parseFloat(document.getElementById('total-price').textContent);
     
-    // Create item object for cart
+    // Standardize order type naming
+    const rawOrderType = document.querySelector('input[name="order_type"]:checked').value;
+    const orderType = rawOrderType === 'subscription' ? 'Subscription' : 'One-Time';
+    
     const item = {
-        id: 'custom-' + Date.now(), // Unique ID for custom box
+        id: 'custom-' + Date.now(),
         type: 'custom',
         name: `Custom ${boxSize.charAt(0).toUpperCase() + boxSize.slice(1)} Box`,
         quantity: quantity,
         price: totalPrice,
-        orderType: orderType,
+        order_type: orderType, // Changed from orderType to order_type for consistency
         boxSize: boxSize,
         products: selectedSnacksArray
     };
-
     // Only add to cart if there are selected snacks
     if (selectedSnacksArray.length > 0) {
         // Check if we have enough snacks for the selected box size
