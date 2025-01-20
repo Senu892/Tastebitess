@@ -118,6 +118,11 @@ if (isset($_SESSION['message'])) {
 <body class="bg-gray-100">
     <div class="min-h-screen flex items-center justify-center">
         <div class="bg-white rounded-lg shadow-lg p-8 max-w-lg w-full">
+        <div class="absolute top-4 left-4">
+                <a href="admindash.php" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    Home
+                </a>
+            </div>
             <h1 class="text-2xl font-bold text-gray-800 text-center mb-6">Add New Snackbox</h1>
 
             <?php if (!empty($message)): ?>

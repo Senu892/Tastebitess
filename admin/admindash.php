@@ -494,10 +494,11 @@ if (isset($_GET['delete_snackbox_id'])) {
     </div>
 
     <!-- Snackbox Edit Modal -->
-    <div id="snackboxEditModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden flex items-center justify-center">
-        <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">Edit Snackbox</h2>
-            <form action="admindash.php" method="POST" id="snackboxEditForm">
+<div id="snackboxEditModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-lg p-6 max-w-md w-full max-h-[90vh] flex flex-col">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Edit Snackbox</h2>
+        <form action="admindash.php" method="POST" id="snackboxEditForm" class="flex flex-col h-full overflow-hidden">
+            <div class="space-y-4 flex-grow overflow-y-auto pr-2">
                 <input type="hidden" name="edit_snackbox_id" id="edit_snackbox_id">
                 <div class="mb-4">
                     <label for="snackbox_name" class="block text-sm font-medium text-gray-700">Snackbox Name</label>
@@ -531,13 +532,14 @@ if (isset($_GET['delete_snackbox_id'])) {
                     <div id="edit_selected_snacks" class="selected-snacks"></div>
                     <input type="hidden" name="snacks_selected" id="edit_snacks_selected">
                 </div>
-                <div class="flex justify-end">
-                    <button type="button" onclick="closeSnackboxEditModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg mr-2">Cancel</button>
-                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Save</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div class="flex justify-end pt-4 mt-auto border-t">
+                <button type="button" onclick="closeSnackboxEditModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg mr-2">Cancel</button>
+                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Save</button>
+            </div>
+        </form>
     </div>
+</div>
 
     <!-- Order Status Modal -->
     <div id="statusModal" class="fixed inset-0 bg-gray-800 bg-opacity-50 hidden flex items-center justify-center">

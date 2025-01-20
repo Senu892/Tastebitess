@@ -137,7 +137,7 @@ $isLoggedIn = isset($_SESSION['logged_in']) && $_SESSION['logged_in'];
                             </svg>
                         </div>
                         <h3 class="text-xl font-semibold mb-4">Fresh Daily</h3>
-                        <p class="text-gray-600">Every snack is freshly made and delivered to ensure the best taste and quality in every bite.</p>
+                        <p class="text-gray-600">Every snack is freshly delivered to ensure the best taste and quality in every bite.</p>
                     </div>
 
                     <!-- Feature 3 -->
