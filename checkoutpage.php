@@ -9,7 +9,8 @@ if (!isset($_SESSION['logged_in']) || !$_SESSION['logged_in']) {
 }
 
 // Initialize variables
-$snackbox_name = "Custom Snack Box";
+$snackbox_name = "";
+$snackboximage_url = "";
 $error = null;
 $boxSize = '';
 $quantity = 1;
@@ -37,13 +38,15 @@ if (isset($_POST['snackbox_id'])) {
     $quantity = $_POST['quantity'];
     $total_price = $_POST['total_price'];
     
+    
 
-    $stmt = $conn->prepare("SELECT snackbox_name FROM snackboxes WHERE id = ?");
+    $stmt = $conn->prepare("SELECT snackbox_name, snackboximage_url FROM snackboxes WHERE id = ?");
     $stmt->bind_param("i", $snackbox_id);
     $stmt->execute();
     $result = $stmt->get_result();
     if ($row = $result->fetch_assoc()) {
         $snackbox_name = $row['snackbox_name'];
+        $snackboximage_url = $row['snackboximage_url'];
     }
     $stmt->close();
 }
@@ -323,7 +326,7 @@ if (!isset($quantity) && isset($_POST['quantity'])) {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-rose-500 font-medium text-xl">Checkout</h2>
                 <span class="bg-orange-50 text-xs px-3 py-1 rounded-full text-orange-800">
-                    <?php echo ucfirst($order_type); ?> Order
+                    <?php echo ucfirst($orderType); ?> Order
                 </span>
             </div>
 
@@ -422,7 +425,7 @@ if (!isset($quantity) && isset($_POST['quantity'])) {
                                                     </p>
                                                     <p class="text-gray-500 text-sm">
                                                         $<?php echo number_format($item['price'] * $item['quantity'], 2); ?>
-                                                        <?php echo ($item['order_type'] === 'subscription') ? '(Monthly Subscription)' : ''; ?>
+                                                        <?php echo ($item['orderType'] === 'subscription') ? '(Monthly Subscription)' : ''; ?>
                                                     </p>
                                                 </div>
                                             </div>
@@ -432,10 +435,12 @@ if (!isset($quantity) && isset($_POST['quantity'])) {
                             } else { ?>
                                 <div class="flex items-center gap-4">
                                     <div class="w-16 h-16 bg-white rounded-xl p-2">
-                                        <img src="snack.png" alt="Japanese Snacks Box" class="w-full h-full object-contain">
+                                        <img src="<?php echo !empty($snackboximage_url) ? ucfirst($snackboximage_url) : "snack.png"; ?>" alt="Japanese Snacks Box" class="w-full h-full object-contain">
                                     </div>
                                     <div class="flex-grow">
-                                        <p class="text-gray-900 font-medium">Custom Snack Box</p>
+                                    <p class="text-gray-900 font-medium">
+                                        <?php echo !empty($snackbox_name) ? ucfirst($snackbox_name) : "Custom Snack Box"; ?>
+                                    </p>
                                         <p class="text-gray-500 text-sm"><?php echo ucfirst($boxSize); ?> Size - <?php echo $quantity; ?> Box(es)</p>
                                         <p class="text-gray-500 text-sm">
                                             $<?php echo number_format($subtotal, 2); ?> 
